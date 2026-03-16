@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
-import { useAuthStore } from '@/store/auth.store';
 import { FILE_LIMITS } from '@pob-eqp/shared';
 
 interface UploadedFile {
@@ -66,40 +65,18 @@ export function DocumentUploader({
       formData.append('file', file);
       formData.append('documentType', documentType);
 
-      // Upload via multipart POST — single step, no S3 needed
-      const response = await new Promise<{ fileKey: string }>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
-        });
-        xhr.addEventListener('load', () => {
-          if (xhr.status < 300) {
-            try {
-              const body = JSON.parse(xhr.responseText) as { data: { fileKey: string } };
-              resolve(body.data);
-            } catch {
-              reject(new Error('Invalid server response'));
-            }
-          } else {
-            try {
-              const body = JSON.parse(xhr.responseText) as { message?: string };
-              reject(new Error(body.message ?? `Upload failed: ${xhr.status}`));
-            } catch {
-              reject(new Error(`Upload failed: ${xhr.status}`));
-            }
-          }
-        });
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')));
-
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
-        xhr.open('POST', `${baseUrl}/registration/documents/upload`);
-
-        // Inject auth token from Zustand store (stored under key 'pob-auth', not 'accessToken')
-        const token = useAuthStore.getState().accessToken;
-        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-
-        xhr.send(formData);
-      });
+      // Use apiClient — its request interceptor auto-attaches the Bearer token from localStorage
+      const res = await apiClient.post<{ data: { fileKey: string } }>(
+        '/registration/documents/upload',
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (e) => {
+            if (e.total) setProgress(Math.round((e.loaded / e.total) * 100));
+          },
+        },
+      );
+      const response = res.data.data;
 
       const uploaded: UploadedFile = {
         fileKey: response.fileKey,

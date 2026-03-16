@@ -68,10 +68,12 @@ export default function VerifyOtpPage() {
     setError(null);
     try {
       const res = await apiClient.post<{
-        valid: boolean;
-        accessToken?: string;
-        refreshToken?: string;
-        user?: UserSummary;
+        data: {
+          valid: boolean;
+          accessToken?: string;
+          refreshToken?: string;
+          user?: UserSummary;
+        };
       }>('/auth/verify-otp', {
         identifier: decodeURIComponent(identifier),
         code,
@@ -79,12 +81,13 @@ export default function VerifyOtpPage() {
 
       setOtpVerified(true);
 
-      // Save JWT tokens so document upload (next step) can authenticate
-      if (res.data.accessToken && res.data.refreshToken && res.data.user) {
+      // API wraps all responses as { success, data: { ... } }
+      const payload = res.data.data;
+      if (payload?.accessToken && payload?.refreshToken && payload?.user) {
         setAuth({
-          accessToken: res.data.accessToken,
-          refreshToken: res.data.refreshToken,
-          user: res.data.user,
+          accessToken: payload.accessToken,
+          refreshToken: payload.refreshToken,
+          user: payload.user,
         });
       }
 
