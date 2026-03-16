@@ -50,7 +50,7 @@ export default function LegalDocumentsPage() {
           </div>
 
           <DocumentUploader
-            documentType="COMPANY_REGISTRATION"
+            documentType="COMPANY_CERTIFICATE"
             label="Company Registration Certificate"
             description="Official state registration certificate (Dövlət qeydiyyatı şəhadətnaməsi)"
             required
@@ -94,7 +94,7 @@ export default function LegalDocumentsPage() {
           />
 
           <DocumentUploader
-            documentType="OTHER"
+            documentType="ADDITIONAL"
             label="Additional Supporting Documents"
             description="Any other supporting documents (max 5 total)"
             maxFiles={Math.max(0, 3 - additionalCount)}
