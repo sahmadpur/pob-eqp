@@ -1,0 +1,48 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+.next
+dist
+build
+out
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.staging
+.env.production
+
+# Turbo cache
+.turbo
+
+# Prisma
+prisma/migrations/
+
+# Testing
+coverage
+*.lcov
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# IDE
+.vscode
+.idea
+*.swp
+
+# AWS
+.aws
+
+# Docker
+docker-compose.override.yml

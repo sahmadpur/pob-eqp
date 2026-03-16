@@ -1,0 +1,45 @@
+{
+  "auth": {
+    "signIn": "Sign In",
+    "signingIn": "Signing in...",
+    "emailOrPhone": "Email or phone",
+    "password": "Password",
+    "rememberMe": "Remember me",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "register": "Register",
+    "haveAccount": "Already have an account?",
+    "createAccount": "Create Account",
+    "selectAccountType": "Select your account type",
+    "individualCustomer": "Individual Customer",
+    "individualDesc": "For individual drivers and independent carriers",
+    "legalEntity": "Legal Entity",
+    "legalDesc": "For companies and enterprises"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "orders": "Orders",
+    "newOrder": "New Order",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "dashboard": {
+    "welcome": "Welcome",
+    "newOrder": "New Order",
+    "newOrderDesc": "Create a new shipment order",
+    "myOrders": "My Orders",
+    "myOrdersDesc": "View existing orders",
+    "profile": "My Profile",
+    "profileDesc": "Manage account settings"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit"
+  }
+}

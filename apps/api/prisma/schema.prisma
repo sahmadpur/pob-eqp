@@ -1,0 +1,1026 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// POB E-Queue Platform – Prisma Schema
+// Covers ALL entities from BRD v1.0
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CUSTOMER_INDIVIDUAL
+  CUSTOMER_LEGAL
+  FINANCE_OFFICER
+  ADMINISTRATOR
+  CONTROL_TOWER_OPERATOR
+  GATE_OFFICER
+  PARKING_CHECKER
+  BORDER_OFFICER
+  TERMINAL_OPERATOR
+  SYSTEM_ADMINISTRATOR
+}
+
+enum AccountStatus {
+  PENDING_EMAIL
+  PENDING_REVIEW
+  PENDING_CONTRACT
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+  DECLINED
+}
+
+enum RegistrationStatus {
+  SUBMITTED
+  DOCUMENTS_REQUESTED
+  AWAITING_SIGNATURE
+  APPROVED
+  DECLINED
+}
+
+enum PlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum DayStatus {
+  WORKING
+  NON_WORKING
+  WEATHER_BLOCKED
+  HOLIDAY
+}
+
+enum BaseQueueType {
+  PRIORITY
+  FAST_TRACK
+  REGULAR
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  AWAITING_VERIFICATION
+  AWAITING_CLARIFICATION
+  VERIFIED
+  IN_SHIPMENT
+  BORDER_PASSED
+  AT_TERMINAL
+  LOADED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum TransportType {
+  DRIVER_ONLY
+  TRANSPORT
+  TRANSPORT_WITH_CARGO
+}
+
+enum CargoType {
+  GENERAL
+  BULK
+  REFRIGERATED
+  HAZARDOUS
+  OVERSIZED
+  PERISHABLE
+}
+
+enum PaymentMethod {
+  CARD
+  BANK_TRANSFER
+  CASH
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
+  AWAITING_BANK_TRANSFER
+  CASH_AT_GATE
+}
+
+enum VesselStatus {
+  EXPECTED
+  APPROVED
+  POSTPONED
+  ARRIVED
+  DEPARTED
+}
+
+enum ManifestStatus {
+  DRAFT
+  GENERATED
+  DISTRIBUTED
+}
+
+enum ParkingZoneType {
+  REGULAR
+  HAZARDOUS_PRIORITY
+  FAST_TRACK
+  OVERSIZED
+}
+
+enum ParkingSlotStatus {
+  AVAILABLE
+  RESERVED
+  OCCUPIED
+}
+
+enum TruckArrivalStatus {
+  EXPECTED
+  ARRIVED
+  LINED_UP
+  NO_SHOW
+  ABSENT
+}
+
+enum LoadingStatus {
+  EXPECTED
+  ARRIVED
+  LOADING
+  LOADED
+  FINISHED
+}
+
+enum FineType {
+  NO_SHOW
+  WRONG_PARKING
+  LATE_ARRIVAL
+}
+
+enum FineStatus {
+  ISSUED
+  PAID
+  WAIVED
+  DISPUTED
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+}
+
+enum NotificationCategory {
+  ORDERS
+  PAYMENTS
+  REGISTRATION
+  SHIPMENT
+  SYSTEM
+}
+
+enum SupportTicketCategory {
+  PAYMENT_ISSUE
+  GATE_ENTRY_FAILURE
+  DOCUMENT_PROBLEM
+  PARKING_DISPUTE
+  TECHNICAL_ERROR
+  ANPR_FAILURE
+  OTHER
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  ESCALATED
+  RESOLVED
+  CLOSED
+}
+
+enum DocumentType {
+  COMPANY_CERTIFICATE
+  DIRECTOR_ID
+  POWER_OF_ATTORNEY
+  CMR
+  CARGO_DECLARATION
+  DRIVER_LICENSE
+  ADDITIONAL
+  CONTRACT
+  MANIFEST
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER & AUTH
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Core user account — all roles share this table. RBAC via `role` field.
+model User {
+  id                    String        @id @default(cuid())
+  email                 String        @unique
+  phone                 String        @unique
+  passwordHash          String
+  role                  UserRole
+  accountStatus         AccountStatus @default(PENDING_EMAIL)
+  displayName           String?
+  profilePhotoS3Key     String?
+  locale                String        @default("en")
+
+  // MFA — mandatory for ADMINISTRATOR and FINANCE_OFFICER
+  mfaTotpSecret         String?
+  mfaEnabled            Boolean       @default(false)
+
+  // Biometric auth token (hashed)
+  biometricTokenHash    String?
+
+  // Bank transfer access — individually configurable by Finance per Legal customer
+  bankTransferEnabled   Boolean       @default(true)
+
+  // Login security
+  failedLoginAttempts   Int           @default(0)
+  lockedUntil           DateTime?
+  lastLoginAt           DateTime?
+  lastLoginIp           String?
+
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+  deletedAt             DateTime?     // soft delete — retained for 7 years
+
+  // ── Relations ──
+  individualProfile     IndividualProfile?
+  legalProfile          LegalEntityProfile?
+  orders                Order[]
+  sessions              UserSession[]
+  notifications         Notification[]
+  supportTickets        SupportTicket[]
+  auditLogs             AuditLog[]
+  financeReviews        RegistrationReview[]      @relation("FinanceReviewer")
+  orderVerifications    OrderVerification[]       @relation("FinanceVerifier")
+  gateOverrides         GateOverride[]            @relation("GateOperator")
+  finesIssued           Fine[]                    @relation("FineIssuer")
+  planChanges           PlanAudit[]               @relation("PlanAuditor")
+
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+  @@index([accountStatus])
+  @@map("users")
+}
+
+model UserSession {
+  id            String    @id @default(cuid())
+  userId        String
+  refreshToken  String    @unique
+  deviceInfo    String?
+  ipAddress     String?
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  revokedAt     DateTime?
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([refreshToken])
+  @@map("user_sessions")
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(cuid())
+  email      String
+  token      String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([token])
+  @@index([email])
+  @@map("email_verification_tokens")
+}
+
+model OtpToken {
+  id         String    @id @default(cuid())
+  identifier String    // email or phone
+  code       String    // 6-digit, stored hashed
+  purpose    String    // 'password_reset' | 'phone_change' | 'mfa'
+  expiresAt  DateTime
+  usedAt     DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([identifier])
+  @@map("otp_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INDIVIDUAL CUSTOMER PROFILE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model IndividualProfile {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  firstName           String
+  lastName            String
+  fathersName         String?
+  dateOfBirth         DateTime
+  nationalIdOrPassport String  @unique
+
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("individual_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEGAL ENTITY CUSTOMER PROFILE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LegalEntityProfile {
+  id                    String             @id @default(cuid())
+  userId                String             @unique
+  companyName           String
+  taxRegistrationId     String             @unique
+  legalAddress          String
+  contactPersonName     String
+  contactPersonPosition String
+  country               String?
+
+  registrationStatus    RegistrationStatus @default(SUBMITTED)
+  submittedAt           DateTime           @default(now())
+  reviewedAt            DateTime?
+  reviewedById          String?
+
+  // Contract management
+  contractS3Key         String?
+  contractSentAt        DateTime?
+  contractSignedAt      DateTime?
+  signatureData         String?            // base64 e-signature image
+  signedByName          String?
+  existingContractFound Boolean            @default(false)
+
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents             Document[]
+  registrationReviews   RegistrationReview[]
+
+  @@index([registrationStatus])
+  @@index([taxRegistrationId])
+  @@map("legal_entity_profiles")
+}
+
+model RegistrationReview {
+  id                 String             @id @default(cuid())
+  legalProfileId     String
+  reviewerId         String
+  action             String             // 'REQUEST_INFO' | 'APPROVE' | 'DECLINE'
+  requestMessage     String?
+  declineReason      String?            // 'DOCUMENT_FORGERY' | 'INCOMPLETE_INFO' | 'BLACKLISTED' | 'OTHER'
+  declineReasonNote  String?
+  internalNote       String?
+  cycleNumber        Int                @default(1)  // tracks clarification cycles (max 2)
+  createdAt          DateTime           @default(now())
+
+  legalProfile       LegalEntityProfile @relation(fields: [legalProfileId], references: [id])
+  reviewer           User               @relation("FinanceReviewer", fields: [reviewerId], references: [id])
+
+  @@index([legalProfileId])
+  @@map("registration_reviews")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOCUMENTS (S3-backed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Document {
+  id               String         @id @default(cuid())
+  type             DocumentType
+  originalFileName String
+  s3Key            String         @unique
+  mimeType         String
+  fileSizeBytes    Int
+  uploadedById     String
+  orderId          String?
+  legalProfileId   String?
+  createdAt        DateTime       @default(now())
+
+  order            Order?         @relation(fields: [orderId], references: [id])
+  legalProfile     LegalEntityProfile? @relation(fields: [legalProfileId], references: [id])
+
+  @@index([orderId])
+  @@index([legalProfileId])
+  @@map("documents")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLANNING MODULE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Plan {
+  id                String       @id @default(cuid())
+  name              String
+  startDate         DateTime
+  endDate           DateTime
+  status            PlanStatus   @default(DRAFT)
+  defaultDailyQuota Int          @default(1000)
+  createdById       String
+  activatedAt       DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  queueTypes        PlanQueueType[]
+  days              PlanDay[]
+  orders            Order[]
+  weatherCache      WeatherCache[]
+  auditTrail        PlanAudit[]
+
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("plans")
+}
+
+/// Queue type config per plan — 3 default + custom types allowed
+model PlanQueueType {
+  id               String         @id @default(cuid())
+  planId           String
+  name             String
+  baseType         BaseQueueType? // null for custom types
+  quotaSharePercent Decimal       @db.Decimal(5, 2)
+  loadingSequence  Int
+  createdAt        DateTime       @default(now())
+
+  plan             Plan           @relation(fields: [planId], references: [id], onDelete: Cascade)
+  orders           Order[]
+
+  @@unique([planId, name])
+  @@index([planId])
+  @@map("plan_queue_types")
+}
+
+/// Per-day record within a plan. Created when plan is activated.
+model PlanDay {
+  id                String      @id @default(cuid())
+  planId            String
+  date              DateTime    @db.Date
+  status            DayStatus   @default(WORKING)
+  quotaOverride     Int?        // overrides plan.defaultDailyQuota if set
+  holidayName       String?
+  weatherReason     String?     // populated if status = WEATHER_BLOCKED
+
+  plan              Plan        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  orders            Order[]     @relation("OrderPlanDay")
+
+  @@unique([planId, date])
+  @@index([planId])
+  @@index([date])
+  @@map("plan_days")
+}
+
+model WeatherCache {
+  id               String    @id @default(cuid())
+  planId           String
+  date             DateTime  @db.Date
+  windSpeedMs      Decimal   @db.Decimal(6, 2)
+  precipitationMm  Decimal   @db.Decimal(6, 2)
+  waveHeightM      Decimal   @db.Decimal(6, 2)
+  isHighRisk       Boolean   @default(false)
+  fetchedAt        DateTime  @default(now())
+
+  plan             Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, date])
+  @@index([planId])
+  @@map("weather_cache")
+}
+
+model PlanAudit {
+  id          String   @id @default(cuid())
+  planId      String
+  actorId     String
+  action      String   // 'CREATE' | 'ACTIVATE' | 'EDIT_QUOTA' | 'NON_WORKING_CASCADE' | 'ARCHIVE'
+  description String
+  diff        Json?    // before/after for meaningful changes
+  createdAt   DateTime @default(now())
+
+  plan        Plan     @relation(fields: [planId], references: [id])
+  actor       User     @relation("PlanAuditor", fields: [actorId], references: [id])
+
+  @@index([planId])
+  @@map("plan_audits")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORDER PLACEMENT MODULE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Order {
+  id                    String         @id @default(cuid())
+  orderId               String         @unique  // POB-ORD-XXXX — immutable after generation
+  userId                String
+  planId                String?
+  planDayId             String?
+  planQueueTypeId       String?
+  vesselId              String?
+
+  status                OrderStatus    @default(PENDING_PAYMENT)
+  destination           String
+
+  // Driver details
+  driverFullName        String
+  driverNationalId      String
+  driverLicense         String?
+  driverPhone           String
+
+  // Transport
+  transportType         TransportType
+  vehiclePlateNumber    String?
+  vehicleMakeModel      String?
+
+  // Cargo
+  cargoType             CargoType?
+  cargoWeightTonnes     Decimal?       @db.Decimal(8, 2)
+  cargoDescription      String?
+
+  // Payment
+  paymentMethod         PaymentMethod
+  paymentStatus         PaymentStatus  @default(PENDING)
+  baseFeeAzn            Decimal        @db.Decimal(10, 2)
+  queueSurchargeAzn     Decimal        @default(0) @db.Decimal(10, 2)
+  cargoFeeAzn           Decimal        @default(0) @db.Decimal(10, 2)
+  totalAmountAzn        Decimal        @db.Decimal(10, 2)
+  paymentConfirmedAt    DateTime?      // FIFO sort key — server-generated, immutable
+
+  // QR code
+  qrCodeS3Key           String?
+  qrCodeGeneratedAt     DateTime?
+
+  // Slot reservation
+  slotReservationId     String?
+  slotReservedUntil     DateTime?
+
+  // Shipment
+  manifestId            String?
+  gatePassIssuedAt      DateTime?
+  parkingBayId          String?
+  parkingConfirmedAt    DateTime?
+  borderPassedAt        DateTime?
+  loadingStatus         LoadingStatus?
+  loadedAt              DateTime?
+  completedAt           DateTime?
+  cancelledAt           DateTime?
+  cancelledReason       String?
+
+  // No-show tracking
+  noShowDetectedAt      DateTime?
+  noShowTimerStartedAt  DateTime?
+
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  // ── Relations ──
+  user                  User           @relation(fields: [userId], references: [id])
+  plan                  Plan?          @relation(fields: [planId], references: [id])
+  planDay               PlanDay?       @relation("OrderPlanDay", fields: [planDayId], references: [id])
+  planQueueType         PlanQueueType? @relation(fields: [planQueueTypeId], references: [id])
+  vessel                Vessel?        @relation(fields: [vesselId], references: [id])
+  manifest              Manifest?      @relation(fields: [manifestId], references: [id])
+  parkingBay            ParkingSlot?   @relation(fields: [parkingBayId], references: [id])
+  documents             Document[]
+  payments              Payment[]
+  verification          OrderVerification?
+  timeline              OrderEvent[]
+  fines                 Fine[]
+  supportTickets        SupportTicket[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([planDayId])
+  @@index([paymentConfirmedAt])
+  @@index([vesselId])
+  @@map("orders")
+}
+
+model OrderEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  actor     String   // 'Customer' | 'Finance' | 'Platform' | 'Gate' | 'Border' | 'Terminal'
+  actorId   String?
+  event     String
+  note      String?
+  createdAt DateTime @default(now())
+
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_events")
+}
+
+model SlotReservation {
+  id          String    @id @default(cuid())
+  userId      String
+  planDayId   String
+  queueTypeId String
+  expiresAt   DateTime
+  confirmed   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([planDayId])
+  @@index([expiresAt])
+  @@map("slot_reservations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FINANCE ORDER VERIFICATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+model OrderVerification {
+  id                   String    @id @default(cuid())
+  orderId              String    @unique
+  verifierId           String?
+  checkDocumentsOk     Boolean   @default(false)
+  checkDriverIdOk      Boolean   @default(false)
+  checkVehicleOk       Boolean   @default(false)
+  checkPaymentOk       Boolean   @default(false)
+  upgradedToPriority   Boolean   @default(false)
+  internalNote         String?
+  requestedClarification String?
+  rejectReason         String?
+  rejectReasonNote     String?
+  verifiedAt           DateTime?
+  rejectedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  order                Order     @relation(fields: [orderId], references: [id])
+  verifier             User?     @relation("FinanceVerifier", fields: [verifierId], references: [id])
+
+  @@map("order_verifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYMENT MODULE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Payment {
+  id                  String        @id @default(cuid())
+  orderId             String
+  method              PaymentMethod
+  status              PaymentStatus @default(PENDING)
+  amountAzn           Decimal       @db.Decimal(10, 2)
+
+  // Card payment
+  gatewayTransactionId String?
+  gatewayReference    String?
+  cardLast4           String?       // last 4 digits only — no raw card data stored
+  cardBrand           String?       // 'visa' | 'mastercard' | 'amex'
+
+  // Bank transfer
+  bankReference       String?       // = Order ID used as reference
+  receiptS3Key        String?
+
+  // Cash
+  cashReferenceCode   String?       @unique  // 6-digit code
+  cashReferenceExpiry DateTime?
+
+  // Refund
+  refundInitiatedAt   DateTime?
+  refundedAt          DateTime?
+  refundAmount        Decimal?      @db.Decimal(10, 2)
+  refundReference     String?
+
+  // Idempotency key — prevents duplicate charges on retry
+  idempotencyKey      String        @unique
+
+  confirmedAt         DateTime?
+  failedAt            DateTime?
+  failureReason       String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  order               Order         @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([status])
+  @@index([cashReferenceCode])
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VESSEL & MANIFEST
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Vessel {
+  id              String       @id @default(cuid())
+  ascoVesselId    String?      @unique  // from ASCO feed
+  name            String
+  flag            String?
+  eta             DateTime
+  status          VesselStatus @default(EXPECTED)
+  capacity        Int?
+  postponeReason  String?
+  postponedAt     DateTime?
+  arrivedAt       DateTime?
+  departedAt      DateTime?
+  approvedAt      DateTime?
+  approvedById    String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  orders          Order[]
+  manifests       Manifest[]
+
+  @@index([status])
+  @@index([eta])
+  @@map("vessels")
+}
+
+/// Manifest is immutable once generated (ManifestStatus = GENERATED)
+model Manifest {
+  id                  String         @id @default(cuid())
+  vesselId            String
+  status              ManifestStatus @default(DRAFT)
+  s3Key               String?        // PDF on S3
+  generatedAt         DateTime?
+  generatedById       String?
+  distributedAt       DateTime?
+
+  // Finance override tracking (required for any post-generation changes)
+  overrideById        String?
+  overrideReason      String?
+  overrideAt          DateTime?
+
+  // Distribution checklist
+  distributedToParking  Boolean   @default(false)
+  distributedToTerminal Boolean   @default(false)
+  distributedToCustoms  Boolean   @default(false)
+  distributedToBorder   Boolean   @default(false)
+  distributedToVessel   Boolean   @default(false)
+
+  createdAt           DateTime       @default(now())
+
+  vessel              Vessel         @relation(fields: [vesselId], references: [id])
+  orders              Order[]
+
+  @@index([vesselId])
+  @@index([status])
+  @@map("manifests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PARKING MANAGEMENT MODULE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ParkingZone {
+  id            String          @id @default(cuid())
+  name          String          @unique  // 'Zone A', 'Zone B', 'Zone C (Hazardous)' etc.
+  type          ParkingZoneType
+  capacity      Int
+  description   String?
+  isActive      Boolean         @default(true)
+
+  slots         ParkingSlot[]
+
+  @@map("parking_zones")
+}
+
+model ParkingSlot {
+  id          String            @id @default(cuid())
+  zoneId      String
+  slotLabel   String            // 'A-14', 'B-03', etc.
+  status      ParkingSlotStatus @default(AVAILABLE)
+  isActive    Boolean           @default(true)
+
+  zone        ParkingZone       @relation(fields: [zoneId], references: [id])
+  orders      Order[]
+
+  @@unique([zoneId, slotLabel])
+  @@index([zoneId])
+  @@index([status])
+  @@map("parking_slots")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GATE PROCESS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model GateCheckIn {
+  id              String             @id @default(cuid())
+  orderId         String             @unique
+  operatorId      String?
+  arrivedAt       DateTime           @default(now())
+  method          String             // 'QR_SCAN' | 'MANUAL_ENTRY'
+  checksResult    Json               // { orderExists, onManifest, paymentConfirmed, inWindow }
+  isLateArrival   Boolean            @default(false)
+  gatePassNumber  String?
+  gatePassIssuedAt DateTime?
+
+  @@map("gate_checkins")
+}
+
+model GateOverride {
+  id          String   @id @default(cuid())
+  orderId     String
+  operatorId  String
+  reason      String   // reason for ANPR override
+  overrideType String  // 'ANPR_FAILURE' | 'MANUAL_SEARCH'
+  createdAt   DateTime @default(now())
+
+  operator    User     @relation("GateOperator", fields: [operatorId], references: [id])
+
+  @@index([orderId])
+  @@map("gate_overrides")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FINES / PENALTIES
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Fine {
+  id          String     @id @default(cuid())
+  orderId     String
+  userId      String
+  issuedById  String
+  type        FineType
+  status      FineStatus @default(ISSUED)
+  amountAzn   Decimal    @db.Decimal(10, 2)
+  issuedAt    DateTime   @default(now())
+  paidAt      DateTime?
+  waivedAt    DateTime?
+  waivedById  String?
+  waivedReason String?
+  note        String?
+
+  order       Order      @relation(fields: [orderId], references: [id])
+  issuedBy    User       @relation("FineIssuer", fields: [issuedById], references: [id])
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@map("fines")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id          String              @id @default(cuid())
+  userId      String
+  channel     NotificationChannel
+  category    NotificationCategory
+  title       String
+  body        String
+  actionUrl   String?
+  isRead      Boolean             @default(false)
+  readAt      DateTime?
+  sentAt      DateTime?
+  failedAt    DateTime?
+  createdAt   DateTime            @default(now())
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([category])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id          String              @id @default(cuid())
+  userId      String              @unique
+  pushOrders     Boolean          @default(true)
+  pushPayments   Boolean          @default(true)
+  pushShipment   Boolean          @default(true)
+  pushSystem     Boolean          @default(true)
+  emailOrders    Boolean          @default(true)
+  emailPayments  Boolean          @default(true)
+  emailShipment  Boolean          @default(true)
+  emailSystem    Boolean          @default(true)
+  smsOrders      Boolean          @default(true)
+  smsPayments    Boolean          @default(false)
+  smsShipment    Boolean          @default(true)
+  smsSystem      Boolean          @default(false)
+  updatedAt      DateTime         @updatedAt
+
+  @@map("notification_preferences")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPPORT MODULE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SupportTicket {
+  id          String                @id @default(cuid())
+  ticketNumber String               @unique  // human-readable: TKT-XXXX
+  userId      String
+  orderId     String?
+  category    SupportTicketCategory
+  status      SupportTicketStatus   @default(OPEN)
+  subject     String
+  description String
+  assignedToId String?
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+  isHardwareFailure Boolean         @default(false)  // triggers <10s escalation
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  user        User                  @relation(fields: [userId], references: [id])
+  order       Order?                @relation(fields: [orderId], references: [id])
+  messages    SupportMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id          String        @id @default(cuid())
+  ticketId    String
+  senderId    String
+  senderRole  UserRole
+  body        String
+  attachmentS3Key String?
+  createdAt   DateTime      @default(now())
+
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("support_messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM CONFIGURATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SystemConfig {
+  id                        String   @id @default(cuid())
+  key                       String   @unique
+  value                     String
+  description               String?
+  updatedById               String?
+  updatedAt                 DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+// Key examples:
+// 'NO_SHOW_TIMER_MINUTES'         → '30'
+// 'NO_SHOW_FINE_AZN'              → '50'
+// 'WRONG_PARKING_FINE_AZN'        → '25'
+// 'SLOT_RESERVATION_MINUTES'      → '15'
+// 'PAYMENT_TIMEOUT_MINUTES'       → '60'
+// 'MAX_FILE_UPLOAD_MB'            → '10'
+// 'FINANCE_REVIEW_SLA_DAYS'       → '3'
+// 'WEATHER_WIND_THRESHOLD_MS'     → '20'
+// 'WEATHER_WAVE_THRESHOLD_M'      → '2'
+// 'WEATHER_PRECIP_THRESHOLD_MM'   → '20'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LOG (immutable — no updates, no deletes)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String
+  entity      String   // table/model name
+  entityId    String
+  payload     Json?    // before/after diff
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REPORTING (materialised summary — populated by background jobs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model DailyReportSnapshot {
+  id                  String   @id @default(cuid())
+  date                DateTime @db.Date @unique
+  totalOrders         Int      @default(0)
+  priorityOrders      Int      @default(0)
+  fastTrackOrders     Int      @default(0)
+  regularOrders       Int      @default(0)
+  completedOrders     Int      @default(0)
+  cancelledOrders     Int      @default(0)
+  noShowOrders        Int      @default(0)
+  totalRevenueAzn     Decimal  @db.Decimal(12, 2) @default(0)
+  cardRevenueAzn      Decimal  @db.Decimal(12, 2) @default(0)
+  bankTransferRevAzn  Decimal  @db.Decimal(12, 2) @default(0)
+  cashRevenueAzn      Decimal  @db.Decimal(12, 2) @default(0)
+  gateEntries         Int      @default(0)
+  avgWaitTimeMinutes  Decimal? @db.Decimal(8, 2)
+  generatedAt         DateTime @default(now())
+
+  @@map("daily_report_snapshots")
+}

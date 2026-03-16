@@ -1,0 +1,45 @@
+{
+  "auth": {
+    "signIn": "Daxil ol",
+    "signingIn": "Daxil olunur...",
+    "emailOrPhone": "E-mail və ya telefon",
+    "password": "Şifrə",
+    "rememberMe": "Məni xatırla",
+    "forgotPassword": "Şifrəni unutdunuz?",
+    "noAccount": "Hesabınız yoxdur?",
+    "register": "Qeydiyyatdan keçin",
+    "haveAccount": "Hesabınız var?",
+    "createAccount": "Hesab yaradın",
+    "selectAccountType": "Hesab növünü seçin",
+    "individualCustomer": "Fiziki şəxs",
+    "individualDesc": "Fərdi sürücülər və müstəqil daşıyıcılar üçün",
+    "legalEntity": "Hüquqi şəxs",
+    "legalDesc": "Şirkətlər və müəssisələr üçün"
+  },
+  "nav": {
+    "dashboard": "İdarə paneli",
+    "orders": "Sifarişlər",
+    "newOrder": "Yeni sifariş",
+    "profile": "Profil",
+    "logout": "Çıxış"
+  },
+  "dashboard": {
+    "welcome": "Xoş gəldiniz",
+    "newOrder": "Yeni sifariş",
+    "newOrderDesc": "Yük daşıma sifarişi yaradın",
+    "myOrders": "Sifarişlərim",
+    "myOrdersDesc": "Mövcud sifarişlərə baxın",
+    "profile": "Profilim",
+    "profileDesc": "Hesab məlumatlarını idarə edin"
+  },
+  "common": {
+    "loading": "Yüklənir...",
+    "error": "Xəta baş verdi",
+    "cancel": "Ləğv et",
+    "confirm": "Təsdiqlə",
+    "save": "Yadda saxla",
+    "back": "Geri",
+    "next": "İrəli",
+    "submit": "Göndər"
+  }
+}

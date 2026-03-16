@@ -1,0 +1,45 @@
+{
+  "auth": {
+    "signIn": "Giriş Yap",
+    "signingIn": "Giriş yapılıyor...",
+    "emailOrPhone": "E-posta veya telefon",
+    "password": "Şifre",
+    "rememberMe": "Beni hatırla",
+    "forgotPassword": "Şifremi unuttum?",
+    "noAccount": "Hesabınız yok mu?",
+    "register": "Kayıt ol",
+    "haveAccount": "Hesabınız var mı?",
+    "createAccount": "Hesap Oluştur",
+    "selectAccountType": "Hesap türünü seçin",
+    "individualCustomer": "Bireysel Müşteri",
+    "individualDesc": "Bireysel sürücüler ve bağımsız taşıyıcılar için",
+    "legalEntity": "Tüzel Kişi",
+    "legalDesc": "Şirketler ve işletmeler için"
+  },
+  "nav": {
+    "dashboard": "Gösterge Paneli",
+    "orders": "Siparişler",
+    "newOrder": "Yeni Sipariş",
+    "profile": "Profil",
+    "logout": "Çıkış"
+  },
+  "dashboard": {
+    "welcome": "Hoş Geldiniz",
+    "newOrder": "Yeni Sipariş",
+    "newOrderDesc": "Yeni nakliye siparişi oluşturun",
+    "myOrders": "Siparişlerim",
+    "myOrdersDesc": "Mevcut siparişleri görüntüleyin",
+    "profile": "Profilim",
+    "profileDesc": "Hesap ayarlarını yönetin"
+  },
+  "common": {
+    "loading": "Yükleniyor...",
+    "error": "Bir hata oluştu",
+    "cancel": "İptal",
+    "confirm": "Onayla",
+    "save": "Kaydet",
+    "back": "Geri",
+    "next": "İleri",
+    "submit": "Gönder"
+  }
+}

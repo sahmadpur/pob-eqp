@@ -1,0 +1,45 @@
+{
+  "auth": {
+    "signIn": "Войти",
+    "signingIn": "Вход...",
+    "emailOrPhone": "Email или телефон",
+    "password": "Пароль",
+    "rememberMe": "Запомнить меня",
+    "forgotPassword": "Забыли пароль?",
+    "noAccount": "Нет аккаунта?",
+    "register": "Зарегистрироваться",
+    "haveAccount": "Уже есть аккаунт?",
+    "createAccount": "Создать аккаунт",
+    "selectAccountType": "Выберите тип аккаунта",
+    "individualCustomer": "Физическое лицо",
+    "individualDesc": "Для индивидуальных водителей и перевозчиков",
+    "legalEntity": "Юридическое лицо",
+    "legalDesc": "Для компаний и предприятий"
+  },
+  "nav": {
+    "dashboard": "Панель управления",
+    "orders": "Заказы",
+    "newOrder": "Новый заказ",
+    "profile": "Профиль",
+    "logout": "Выход"
+  },
+  "dashboard": {
+    "welcome": "Добро пожаловать",
+    "newOrder": "Новый заказ",
+    "newOrderDesc": "Создать новый заказ на перевозку",
+    "myOrders": "Мои заказы",
+    "myOrdersDesc": "Просмотр существующих заказов",
+    "profile": "Мой профиль",
+    "profileDesc": "Управление настройками аккаунта"
+  },
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Произошла ошибка",
+    "cancel": "Отмена",
+    "confirm": "Подтвердить",
+    "save": "Сохранить",
+    "back": "Назад",
+    "next": "Далее",
+    "submit": "Отправить"
+  }
+}
