@@ -38,7 +38,7 @@ export class RegistrationService {
     firstName: string;
     lastName: string;
     fathersName?: string;
-    dateOfBirth: Date;
+    dateOfBirth: string;
     nationalIdOrPassport: string;
     preferredLanguage?: string;
   }) {

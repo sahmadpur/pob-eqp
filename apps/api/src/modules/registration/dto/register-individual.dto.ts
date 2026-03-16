@@ -36,7 +36,7 @@ export class RegisterIndividualDto {
 
   @ApiProperty({ example: '1990-05-15' })
   @IsDateString()
-  dateOfBirth: Date;
+  dateOfBirth: string;
 
   @ApiProperty({ example: 'AZE1234567' })
   @IsString()
