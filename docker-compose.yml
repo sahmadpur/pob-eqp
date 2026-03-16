@@ -34,6 +34,14 @@ services:
       timeout: 5s
       retries: 5
 
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: pob-mailhog
+    restart: unless-stopped
+    ports:
+      - '1025:1025'   # SMTP
+      - '8025:8025'   # Web UI — open http://localhost:8025 to read emails
+
   api:
     build:
       context: .
@@ -46,6 +54,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mailhog:
+        condition: service_started
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-pob_user}:${POSTGRES_PASSWORD:-pob_secret}@postgres:5432/${POSTGRES_DB:-pob_eqp}?schema=public
@@ -59,6 +69,10 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       PORT: 3001
       UPLOADS_DIR: /app/uploads
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      SMTP_SECURE: 'false'
+      MAIL_FROM: noreply@portofbaku.az
     ports:
       - '3001:3001'
     volumes:

@@ -16,14 +16,15 @@ export class RegistrationNotificationsService {
   constructor(private readonly config: ConfigService) {
     this.fromAddress = this.config.get<string>('MAIL_FROM', 'noreply@portofbaku.az');
 
+    const smtpUser = this.config.get<string>('SMTP_USER');
+    const smtpPass = this.config.get<string>('SMTP_PASS');
+
     this.transporter = nodemailer.createTransport({
-      host: this.config.get<string>('SMTP_HOST', 'localhost'),
-      port: this.config.get<number>('SMTP_PORT', 587),
-      secure: this.config.get<boolean>('SMTP_SECURE', false),
-      auth: {
-        user: this.config.get<string>('SMTP_USER'),
-        pass: this.config.get<string>('SMTP_PASS'),
-      },
+      host: this.config.get<string>('SMTP_HOST', 'mailhog'),
+      port: this.config.get<number>('SMTP_PORT', 1025),
+      secure: this.config.get<string>('SMTP_SECURE', 'false') === 'true',
+      // Only set auth if credentials are provided (MailHog needs no auth)
+      ...(smtpUser && smtpPass ? { auth: { user: smtpUser, pass: smtpPass } } : {}),
     });
   }
 
