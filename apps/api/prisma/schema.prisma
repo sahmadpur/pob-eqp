@@ -202,6 +202,8 @@ enum SupportTicketStatus {
 }
 
 enum DocumentType {
+  NATIONAL_ID
+  PASSPORT
   COMPANY_CERTIFICATE
   DIRECTOR_ID
   POWER_OF_ATTORNEY

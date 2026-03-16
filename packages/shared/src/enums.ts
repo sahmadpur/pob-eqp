@@ -209,6 +209,8 @@ export enum SupportTicketStatus {
 // ─── Documents ───────────────────────────────────────────────────────────────
 
 export enum DocumentType {
+  NATIONAL_ID = 'NATIONAL_ID',
+  PASSPORT = 'PASSPORT',
   COMPANY_CERTIFICATE = 'COMPANY_CERTIFICATE',
   DIRECTOR_ID = 'DIRECTOR_ID',
   POWER_OF_ATTORNEY = 'POWER_OF_ATTORNEY',

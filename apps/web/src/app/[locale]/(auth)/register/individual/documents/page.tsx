@@ -68,9 +68,9 @@ export default function IndividualDocumentsPage() {
       {/* Info box */}
       <div className="mt-5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl">
         <p className="text-xs text-amber-800 leading-relaxed">
-          <strong>Privacy Notice:</strong> Your documents are encrypted and stored securely
-          on AWS S3 with cross-region replication. They will only be used for identity
-          verification purposes and retained for 7 years per legal requirements.
+          <strong>Privacy Notice:</strong> Your documents are stored securely on our servers.
+          They will only be used for identity verification purposes and retained for 7 years
+          per legal requirements.
         </p>
       </div>
 
