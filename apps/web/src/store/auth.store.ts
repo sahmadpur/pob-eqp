@@ -34,6 +34,9 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'pob-auth',
       storage: createJSONStorage(() => localStorage),
+      // Prevents server/client mismatch in Next.js App Router.
+      // StoreHydrator in root layout calls rehydrate() after mount.
+      skipHydration: true,
       partialize: (state) => ({
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
