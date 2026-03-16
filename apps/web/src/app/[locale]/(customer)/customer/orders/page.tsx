@@ -36,7 +36,7 @@ export default function MyOrdersPage() {
 
   useEffect(() => {
     apiClient
-      .get<{ data: Order[] }>('/orders/my')
+      .get<{ data: Order[] }>('/orders/me')
       .then((res) => setOrders(res.data.data ?? []))
       .catch(() => setError('Failed to load orders'))
       .finally(() => setLoading(false));

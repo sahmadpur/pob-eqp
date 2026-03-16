@@ -15,11 +15,10 @@ export class OrdersService {
 
   async createOrder(dto: {
     userId: string;
-    planId: string;
-    planQueueTypeId: string;       // schema field (not queueTypeId)
-    planDayId?: string;
     destination: string;
-    driverFullName: string;        // schema field (not driverName)
+    queueType?: string;
+    scheduledDate?: string;
+    driverFullName: string;
     driverNationalId: string;
     driverPhone: string;
     driverLicense?: string;
@@ -29,34 +28,50 @@ export class OrdersService {
     cargoType?: CargoType;
     cargoDescription?: string;
     cargoWeightTonnes?: number;
+    isHazardous?: boolean;
     paymentMethod: PaymentMethod;
-    baseFeeAzn: number;
-    totalAmountAzn: number;
+    // Optional — only provided when a planning slot is pre-selected
+    planId?: string;
+    planQueueTypeId?: string;
+    planDayId?: string;
   }) {
     const orderId = this.generateOrderId();
+
+    // Fee calculation: 50 AZN base + 0.05 AZN/tonne + queue surcharge
+    const baseFeeAzn = 50;
+    const cargoFeeAzn = dto.cargoWeightTonnes ? +(dto.cargoWeightTonnes * 0.05).toFixed(2) : 0;
+    const queueSurchargeAzn = dto.queueType === 'PRIORITY' ? 30 : dto.queueType === 'FAST_TRACK' ? 15 : 0;
+    const totalAmountAzn = baseFeeAzn + cargoFeeAzn + queueSurchargeAzn;
+
+    // Hazardous cargo → CARGO_DANGEROUS type
+    const cargoType: CargoType | undefined = dto.isHazardous
+      ? CargoType.HAZARDOUS
+      : (dto.cargoType ?? undefined);
 
     return this.prisma.order.create({
       data: {
         orderId,
         userId: dto.userId,
-        planId: dto.planId,
-        planQueueTypeId: dto.planQueueTypeId,
-        planDayId: dto.planDayId,
+        planId: dto.planId ?? null,
+        planQueueTypeId: dto.planQueueTypeId ?? null,
+        planDayId: dto.planDayId ?? null,
         status: OrderStatus.PENDING_PAYMENT,
         destination: dto.destination,
         driverFullName: dto.driverFullName,
         driverNationalId: dto.driverNationalId,
         driverPhone: dto.driverPhone,
-        driverLicense: dto.driverLicense,
+        driverLicense: dto.driverLicense ?? null,
         transportType: dto.transportType,
-        vehiclePlateNumber: dto.vehiclePlateNumber,
-        vehicleMakeModel: dto.vehicleMakeModel,
-        cargoType: dto.cargoType,
-        cargoDescription: dto.cargoDescription,
-        cargoWeightTonnes: dto.cargoWeightTonnes,
+        vehiclePlateNumber: dto.vehiclePlateNumber ?? null,
+        vehicleMakeModel: dto.vehicleMakeModel ?? null,
+        cargoType: cargoType ?? null,
+        cargoDescription: dto.cargoDescription ?? null,
+        cargoWeightTonnes: dto.cargoWeightTonnes ?? null,
         paymentMethod: dto.paymentMethod,
-        baseFeeAzn: dto.baseFeeAzn,
-        totalAmountAzn: dto.totalAmountAzn,
+        baseFeeAzn,
+        queueSurchargeAzn,
+        cargoFeeAzn,
+        totalAmountAzn,
       },
     });
   }
