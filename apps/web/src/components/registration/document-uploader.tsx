@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { apiClient } from '@/lib/api-client';
+import { useAuthStore } from '@/store/auth.store';
 import { FILE_LIMITS } from '@pob-eqp/shared';
 
 interface UploadedFile {
@@ -93,8 +94,8 @@ export function DocumentUploader({
         const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
         xhr.open('POST', `${baseUrl}/registration/documents/upload`);
 
-        // Inject auth token
-        const token = localStorage.getItem('accessToken');
+        // Inject auth token from Zustand store (stored under key 'pob-auth', not 'accessToken')
+        const token = useAuthStore.getState().accessToken;
         if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
         xhr.send(formData);
