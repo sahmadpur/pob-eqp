@@ -28,7 +28,28 @@ export class RegistrationNotificationsService {
     });
   }
 
-  /** P1-03: OTP sent — handled by AuthService; this covers post-registration welcome */
+  /** P1-03: Send OTP verification code */
+  async sendOtpCode(to: string, firstName: string, otpCode: string, expiryMinutes: number) {
+    await this.send(to, 'Your verification code — Port of Baku EQP', `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto">
+        <h2 style="color:#1a56db">Port of Baku E-Queue Platform</h2>
+        <p>Dear ${firstName},</p>
+        <p>Your one-time verification code is:</p>
+        <div style="font-size:36px;font-weight:bold;letter-spacing:10px;color:#1a56db;
+                    background:#f0f5ff;border-radius:8px;padding:16px 24px;
+                    text-align:center;margin:16px 0">
+          ${otpCode}
+        </div>
+        <p style="color:#666;font-size:14px">
+          This code expires in <strong>${expiryMinutes} minutes</strong>.
+          Do not share it with anyone.
+        </p>
+        <p style="color:#999;font-size:12px">— Port of Baku E-Queue Platform (automated)</p>
+      </div>
+    `);
+  }
+
+  /** P1-03: Post-registration welcome (sent together with OTP) */
   async sendIndividualWelcome(to: string, firstName: string) {
     await this.send(to, 'Account Created — Port of Baku EQP', `
       <p>Dear ${firstName},</p>

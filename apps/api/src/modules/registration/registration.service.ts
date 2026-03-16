@@ -74,10 +74,10 @@ export class RegistrationService {
 
     // Generate OTP for email/phone verification
     const otpIdentifier = dto.email ?? dto.phone ?? resolvedEmail;
-    await this.createOtp(otpIdentifier);
+    const otpCode = await this.createOtp(otpIdentifier);
 
     if (dto.email) {
-      void this.notifications.sendIndividualWelcome(dto.email, dto.firstName);
+      void this.notifications.sendOtpCode(dto.email, dto.firstName, otpCode, AUTH_CONSTANTS.OTP_EXPIRY_MINUTES);
     }
 
     return { ...user, otpIdentifier };
@@ -128,7 +128,11 @@ export class RegistrationService {
     });
 
     const otpIdentifier = dto.email ?? dto.phone ?? resolvedEmail;
-    await this.createOtp(otpIdentifier);
+    const otpCode = await this.createOtp(otpIdentifier);
+
+    if (dto.email) {
+      void this.notifications.sendOtpCode(dto.email, dto.contactPersonName, otpCode, AUTH_CONSTANTS.OTP_EXPIRY_MINUTES);
+    }
 
     return { ...user, otpIdentifier };
   }
