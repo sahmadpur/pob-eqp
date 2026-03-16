@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { useRegistrationStore } from '@/store/registration.store';
+import { useAuthStore } from '@/store/auth.store';
 import { AUTH_CONSTANTS } from '@pob-eqp/shared';
+import type { UserSummary } from '@pob-eqp/shared';
 
 // P1-03: OTP verification (email or phone) after registration
 export default function VerifyOtpPage() {
@@ -17,6 +19,7 @@ export default function VerifyOtpPage() {
   const type = params.get('type') ?? 'individual'; // 'individual' | 'legal'
 
   const { setOtpVerified } = useRegistrationStore();
+  const { setAuth } = useAuthStore();
 
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState<string | null>(null);
@@ -64,12 +67,26 @@ export default function VerifyOtpPage() {
     setLoading(true);
     setError(null);
     try {
-      await apiClient.post('/auth/verify-otp', {
+      const res = await apiClient.post<{
+        valid: boolean;
+        accessToken?: string;
+        refreshToken?: string;
+        user?: UserSummary;
+      }>('/auth/verify-otp', {
         identifier: decodeURIComponent(identifier),
         code,
       });
 
       setOtpVerified(true);
+
+      // Save JWT tokens so document upload (next step) can authenticate
+      if (res.data.accessToken && res.data.refreshToken && res.data.user) {
+        setAuth({
+          accessToken: res.data.accessToken,
+          refreshToken: res.data.refreshToken,
+          user: res.data.user,
+        });
+      }
 
       // Route based on registration type
       if (type === 'individual') {

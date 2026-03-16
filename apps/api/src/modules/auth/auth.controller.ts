@@ -73,10 +73,19 @@ export class AuthController {
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify OTP code (password_reset or email_verification)' })
-  async verifyOtp(@Body() dto: VerifyOtpDto & { purpose?: string }) {
+  async verifyOtp(@Body() dto: VerifyOtpDto & { purpose?: string }, @Ip() ip: string) {
     const purpose = dto.purpose ?? 'email_verification';
-    const valid = await this.authService.verifyOtp(dto.identifier, dto.code, purpose);
-    return { valid };
+    const result = await this.authService.verifyOtp(dto.identifier, dto.code, purpose);
+    if (!result.valid) return { valid: false };
+
+    // Auto-issue JWT tokens for email_verification so the user can upload
+    // documents immediately without a separate login step
+    if (result.user) {
+      const tokens = await this.authService.login(result.user, false, ip);
+      return { valid: true, ...tokens };
+    }
+
+    return { valid: true };
   }
 
   @Post('reset-password')

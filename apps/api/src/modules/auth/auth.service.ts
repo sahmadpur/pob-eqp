@@ -166,7 +166,11 @@ export class AuthService {
     this.logger.log(`[DEV ONLY] OTP for ${identifier}: ${code}`);
   }
 
-  async verifyOtp(identifier: string, code: string, purpose: string): Promise<boolean> {
+  async verifyOtp(
+    identifier: string,
+    code: string,
+    purpose: string,
+  ): Promise<{ valid: boolean; user?: User }> {
     const otpRecord = await this.prisma.otpToken.findFirst({
       where: {
         identifier,
@@ -177,16 +181,35 @@ export class AuthService {
       orderBy: { createdAt: 'desc' },
     });
 
-    if (!otpRecord) return false;
+    if (!otpRecord) return { valid: false };
 
     const isValid = await bcrypt.compare(code, otpRecord.code);
-    if (isValid) {
-      await this.prisma.otpToken.update({
-        where: { id: otpRecord.id },
-        data: { usedAt: new Date() },
+    if (!isValid) return { valid: false };
+
+    await this.prisma.otpToken.update({
+      where: { id: otpRecord.id },
+      data: { usedAt: new Date() },
+    });
+
+    // For email_verification, activate the account and return the user so the
+    // controller can issue JWT tokens immediately (no second login step needed)
+    if (purpose === 'email_verification') {
+      const user = await this.prisma.user.findFirst({
+        where: {
+          OR: [{ email: identifier }, { phone: identifier }],
+          deletedAt: null,
+        },
       });
+      if (user) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { accountStatus: 'ACTIVE' },
+        });
+        return { valid: true, user: { ...user, accountStatus: 'ACTIVE' } as User };
+      }
     }
-    return isValid;
+
+    return { valid: true };
   }
 
   async resetPassword(identifier: string, newPassword: string): Promise<void> {
