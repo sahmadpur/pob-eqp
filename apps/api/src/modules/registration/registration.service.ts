@@ -45,7 +45,7 @@ export class RegistrationService {
     // Schema: email is required and unique — generate placeholder if only phone provided
     const resolvedEmail = dto.email ?? `phone-reg-${Date.now()}@placeholder.pob.local`;
     if (dto.email) {
-      const existing = await this.prisma.user.findFirst({ where: { email: dto.email } });
+      const existing = await this.prisma.user.findFirst({ where: { email: dto.email, deletedAt: null } });
       if (existing) throw new ConflictException('User with this email already exists');
     }
 
@@ -95,7 +95,7 @@ export class RegistrationService {
   }) {
     const resolvedEmail = dto.email ?? `legal-reg-${Date.now()}@placeholder.pob.local`;
     if (dto.email) {
-      const existing = await this.prisma.user.findFirst({ where: { email: dto.email } });
+      const existing = await this.prisma.user.findFirst({ where: { email: dto.email, deletedAt: null } });
       if (existing) throw new ConflictException('User with this email already exists');
     }
 
