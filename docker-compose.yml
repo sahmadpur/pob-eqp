@@ -58,11 +58,13 @@ services:
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       PORT: 3001
+      UPLOADS_DIR: /app/uploads
     ports:
       - '3001:3001'
     volumes:
       - ./apps/api/src:/app/apps/api/src
       - ./packages:/app/packages
+      - uploads_data:/app/uploads
     command: sh -c "cd /app/apps/api && /app/node_modules/.bin/ts-node --transpile-only -r /app/node_modules/tsconfig-paths/register src/main.ts"
 
   web:
@@ -86,3 +88,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:

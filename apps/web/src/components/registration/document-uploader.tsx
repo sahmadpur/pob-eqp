@@ -5,7 +5,7 @@ import { apiClient } from '@/lib/api-client';
 import { FILE_LIMITS } from '@pob-eqp/shared';
 
 interface UploadedFile {
-  s3Key: string;
+  fileKey: string;
   fileName: string;
   fileSize: number;
   contentType: string;
@@ -19,7 +19,7 @@ interface DocumentUploaderProps {
   accept?: string;
   required?: boolean;
   onUploaded: (file: UploadedFile) => void;
-  onRemove?: (s3Key: string) => void;
+  onRemove?: (fileKey: string) => void;
   maxFiles?: number;
 }
 
@@ -61,41 +61,47 @@ export function DocumentUploader({
     setProgress(0);
 
     try {
-      // Step 1: Get presigned URL
-      const { data } = await apiClient.post<{
-        data: { uploadUrl: string; s3Key: string };
-      }>('/registration/documents/presigned-url', {
-        documentType,
-        contentType: file.type || `image/${ext}`,
-        fileSize: file.size,
-      });
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('documentType', documentType);
 
-      const { uploadUrl, s3Key } = data.data;
-
-      // Step 2: Upload directly to S3 (no auth header needed for presigned URL)
-      await new Promise<void>((resolve, reject) => {
+      // Upload via multipart POST — single step, no S3 needed
+      const response = await new Promise<{ fileKey: string }>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.upload.addEventListener('progress', (e) => {
           if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
         });
-        xhr.addEventListener('load', () => (xhr.status < 300 ? resolve() : reject(new Error(`S3 upload failed: ${xhr.status}`))));
+        xhr.addEventListener('load', () => {
+          if (xhr.status < 300) {
+            try {
+              const body = JSON.parse(xhr.responseText) as { data: { fileKey: string } };
+              resolve(body.data);
+            } catch {
+              reject(new Error('Invalid server response'));
+            }
+          } else {
+            try {
+              const body = JSON.parse(xhr.responseText) as { message?: string };
+              reject(new Error(body.message ?? `Upload failed: ${xhr.status}`));
+            } catch {
+              reject(new Error(`Upload failed: ${xhr.status}`));
+            }
+          }
+        });
         xhr.addEventListener('error', () => reject(new Error('Upload failed')));
-        xhr.open('PUT', uploadUrl);
-        xhr.setRequestHeader('Content-Type', file.type || `image/${ext}`);
-        xhr.send(file);
-      });
 
-      // Step 3: Confirm upload in DB
-      await apiClient.post('/registration/documents/confirm', {
-        s3Key,
-        documentType,
-        fileName: file.name,
-        fileSize: file.size,
-        contentType: file.type || `image/${ext}`,
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1';
+        xhr.open('POST', `${baseUrl}/registration/documents/upload`);
+
+        // Inject auth token
+        const token = localStorage.getItem('accessToken');
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+        xhr.send(formData);
       });
 
       const uploaded: UploadedFile = {
-        s3Key,
+        fileKey: response.fileKey,
         fileName: file.name,
         fileSize: file.size,
         contentType: file.type,
@@ -126,12 +132,13 @@ export function DocumentUploader({
       const file = e.dataTransfer.files?.[0];
       if (file) void uploadFile(file);
     },
-    [uploadFile],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [documentType],
   );
 
-  const handleRemove = (s3Key: string) => {
-    setFiles((prev) => prev.filter((f) => f.s3Key !== s3Key));
-    onRemove?.(s3Key);
+  const handleRemove = (fileKey: string) => {
+    setFiles((prev) => prev.filter((f) => f.fileKey !== fileKey));
+    onRemove?.(fileKey);
   };
 
   const formatSize = (bytes: number) => {
@@ -157,7 +164,7 @@ export function DocumentUploader({
         <div className="space-y-2">
           {files.map((f) => (
             <div
-              key={f.s3Key}
+              key={f.fileKey}
               className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg"
             >
               <span className="text-xl flex-shrink-0">
@@ -169,7 +176,7 @@ export function DocumentUploader({
               </div>
               <button
                 type="button"
-                onClick={() => handleRemove(f.s3Key)}
+                onClick={() => handleRemove(f.fileKey)}
                 className="text-gray-400 hover:text-red-500 transition-colors p-1"
                 aria-label="Remove file"
               >

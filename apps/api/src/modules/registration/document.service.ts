@@ -1,11 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { DocumentType } from '@pob-eqp/shared';
-import { FILE_LIMITS } from '@pob-eqp/shared';
+import { DocumentType, FILE_LIMITS } from '@pob-eqp/shared';
 import { randomUUID } from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const ALLOWED_CONTENT_TYPES = new Set([
   'application/pdf',
@@ -16,36 +15,31 @@ const ALLOWED_CONTENT_TYPES = new Set([
 
 @Injectable()
 export class DocumentService {
-  private readonly s3: S3Client;
-  private readonly bucket: string;
-  private readonly urlExpiry: number;
+  private readonly logger = new Logger(DocumentService.name);
+  private readonly uploadsDir: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
-    this.s3 = new S3Client({
-      region: this.config.get<string>('AWS_REGION', 'eu-central-1'),
-      credentials: {
-        accessKeyId: this.config.get<string>('AWS_ACCESS_KEY_ID', ''),
-        secretAccessKey: this.config.get<string>('AWS_SECRET_ACCESS_KEY', ''),
-      },
-    });
-    this.bucket = this.config.get<string>('AWS_S3_BUCKET', 'pob-eqp-documents');
-    this.urlExpiry = this.config.get<number>('AWS_S3_URL_EXPIRY', 900);
+    this.uploadsDir = this.config.get<string>('UPLOADS_DIR', '/app/uploads');
+    fs.mkdirSync(this.uploadsDir, { recursive: true });
+    this.logger.log(`Local file storage at: ${this.uploadsDir}`);
   }
 
-  async generatePresignedUploadUrl(dto: {
+  async saveUploadedFile(dto: {
     uploadedById: string;
     documentType: DocumentType;
     contentType: string;
     fileSize: number;
+    originalFileName: string;
+    fileBuffer: Buffer;
     orderId?: string;
     legalProfileId?: string;
   }) {
     if (!ALLOWED_CONTENT_TYPES.has(dto.contentType)) {
       throw new BadRequestException(
-        `Content type ${dto.contentType} not allowed. Use PDF, JPEG, or PNG.`,
+        `Content type "${dto.contentType}" not allowed. Use PDF, JPEG, or PNG.`,
       );
     }
 
@@ -55,35 +49,7 @@ export class DocumentService {
       );
     }
 
-    const ext = dto.contentType.split('/')[1].replace('jpeg', 'jpg');
-    const s3Key = `documents/${dto.uploadedById}/${dto.documentType}/${randomUUID()}.${ext}`;
-
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: s3Key,
-      ContentType: dto.contentType,
-      ContentLength: dto.fileSize,
-      Metadata: {
-        uploadedById: dto.uploadedById,
-        documentType: dto.documentType,
-      },
-    });
-
-    const uploadUrl = await getSignedUrl(this.s3, command, { expiresIn: this.urlExpiry });
-    return { uploadUrl, s3Key, expiresIn: this.urlExpiry };
-  }
-
-  async confirmUpload(dto: {
-    uploadedById: string;
-    s3Key: string;
-    type: DocumentType;
-    originalFileName: string;
-    fileSize: number;
-    mimeType: string;
-    orderId?: string;
-    legalProfileId?: string;
-  }) {
-    // Enforce 5-doc limit on order additional files
+    // Enforce 5-doc limit per order
     if (dto.orderId) {
       const count = await this.prisma.document.count({ where: { orderId: dto.orderId } });
       if (count >= FILE_LIMITS.MAX_ADDITIONAL_DOCS) {
@@ -93,23 +59,42 @@ export class DocumentService {
       }
     }
 
+    const ext = dto.contentType.split('/')[1].replace('jpeg', 'jpg');
+    const fileKey = `documents/${dto.uploadedById}/${dto.documentType}/${randomUUID()}.${ext}`;
+    const fullPath = path.join(this.uploadsDir, fileKey);
+
+    // Ensure subdirectory exists and write file
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    await fs.promises.writeFile(fullPath, dto.fileBuffer);
+
+    this.logger.log(`[LOCAL] Saved file: ${fileKey} (${dto.fileSize} bytes)`);
+
+    // s3Key field stores our local fileKey path for DB compatibility
     return this.prisma.document.create({
       data: {
         uploadedById: dto.uploadedById,
-        s3Key: dto.s3Key,
-        type: dto.type,
+        s3Key: fileKey,
+        type: dto.documentType,
         originalFileName: dto.originalFileName,
         fileSizeBytes: dto.fileSize,
-        mimeType: dto.mimeType,
-        orderId: dto.orderId,
-        legalProfileId: dto.legalProfileId,
+        mimeType: dto.contentType,
+        orderId: dto.orderId ?? null,
+        legalProfileId: dto.legalProfileId ?? null,
       },
     });
   }
 
-  async generatePresignedDownloadUrl(s3Key: string) {
-    const command = new GetObjectCommand({ Bucket: this.bucket, Key: s3Key });
-    return getSignedUrl(this.s3, command, { expiresIn: this.urlExpiry });
+  async getLocalFilePath(fileKey: string): Promise<string> {
+    // Guard against path traversal
+    const resolved = path.resolve(path.join(this.uploadsDir, fileKey));
+    const base = path.resolve(this.uploadsDir);
+    if (!resolved.startsWith(base + path.sep) && resolved !== base) {
+      throw new BadRequestException('Invalid file path');
+    }
+    if (!fs.existsSync(resolved)) {
+      throw new NotFoundException('File not found');
+    }
+    return resolved;
   }
 
   async getDocumentsByUser(uploadedById: string) {

@@ -1,14 +1,16 @@
 import {
   Controller, Post, Body, HttpCode, HttpStatus, Get,
-  UseGuards, Request, Param,
+  UseGuards, Request, Param, UseInterceptors, UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { RegistrationService } from './registration.service';
 import { DocumentService } from './document.service';
 import { RegisterIndividualDto } from './dto/register-individual.dto';
 import { RegisterLegalDto } from './dto/register-legal.dto';
-import { PresignedUrlRequestDto } from './dto/upload-document.dto';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { RolesGuard } from '../../guards/roles.guard';
 import { Roles } from '../../decorators/roles.decorator';
@@ -63,52 +65,47 @@ export class RegistrationController {
 
   // ── Document Upload ────────────────────────────────────────────────────
 
-  /** P1-04 / P1-08: Generate presigned S3 upload URL */
-  @Post('documents/presigned-url')
+  /**
+   * P1-04 / P1-08: Upload document directly (multipart/form-data).
+   * Replaces the old 3-step S3 presigned URL flow.
+   */
+  @Post('documents/upload')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get S3 presigned URL for document upload' })
-  async getPresignedUrl(
-    @Body() dto: PresignedUrlRequestDto,
-    @Request() req: { user: { sub: string } },
-  ) {
-    return this.documentService.generatePresignedUploadUrl({
-      uploadedById: req.user.sub,
-      documentType: dto.documentType,
-      contentType: dto.contentType,
-      fileSize: dto.fileSize,
-    });
-  }
-
-  /** Confirm document uploaded to S3 and persist DB record */
-  @Post('documents/confirm')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Confirm document upload and save DB record' })
-  async confirmUpload(
-    @Body() dto: {
-      s3Key: string;
-      type: DocumentType;
-      originalFileName: string;
-      fileSize: number;
-      mimeType: string;
-      legalProfileId?: string;
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        documentType: { type: 'string', enum: Object.values(DocumentType) },
+        legalProfileId: { type: 'string' },
+        orderId: { type: 'string' },
+      },
+      required: ['file', 'documentType'],
     },
+  })
+  @ApiOperation({ summary: 'Upload document (PDF/JPG/PNG) — stored locally' })
+  async uploadDocument(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { documentType: string; legalProfileId?: string; orderId?: string },
     @Request() req: { user: { sub: string } },
   ) {
-    return this.documentService.confirmUpload({ uploadedById: req.user.sub, ...dto });
-  }
+    if (!file) throw new BadRequestException('No file provided');
 
-  /** Get download URL for a document */
-  @Get('documents/:s3Key/download-url')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get presigned download URL for a document' })
-  async getDownloadUrl(@Param('s3Key') s3Key: string) {
-    const url = await this.documentService.generatePresignedDownloadUrl(
-      decodeURIComponent(s3Key),
-    );
-    return { url };
+    const document = await this.documentService.saveUploadedFile({
+      uploadedById: req.user.sub,
+      documentType: body.documentType as DocumentType,
+      contentType: file.mimetype,
+      fileSize: file.size,
+      originalFileName: file.originalname,
+      fileBuffer: file.buffer,
+      legalProfileId: body.legalProfileId,
+      orderId: body.orderId,
+    });
+
+    return { fileKey: document.s3Key, document };
   }
 
   /** Get my documents */

@@ -17,10 +17,10 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { ReportingModule } from './modules/reporting/reporting.module';
 import { SupportModule } from './modules/support/support.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { FilesModule } from './modules/files/files.module';
 import appConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
-import awsConfig from './config/aws.config';
 import redisConfig from './config/redis.config';
 
 @Module({
@@ -28,7 +28,7 @@ import redisConfig from './config/redis.config';
     // ── Configuration ──────────────────────────────────────────────────────
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, jwtConfig, awsConfig, redisConfig],
+      load: [appConfig, databaseConfig, jwtConfig, redisConfig],
       envFilePath: ['.env.local', '.env'],
     }),
 
@@ -83,6 +83,7 @@ import redisConfig from './config/redis.config';
     ReportingModule,
     SupportModule,
     AdminModule,
+    FilesModule,
   ],
 })
 export class AppModule {}

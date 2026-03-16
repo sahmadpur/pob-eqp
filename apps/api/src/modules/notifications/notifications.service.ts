@@ -1,6 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { NotificationChannel, NotificationCategory } from '@pob-eqp/shared';
 
@@ -21,7 +19,7 @@ function prefField(channel: NotificationChannel, category: NotificationCategory)
   const catMap: Record<string, string> = {
     orders: 'Orders',
     payments: 'Payments',
-    registration: 'Orders', // map registration to orders bucket
+    registration: 'Orders',
     shipment: 'Shipment',
     system: 'System',
   };
@@ -36,10 +34,7 @@ function prefField(channel: NotificationChannel, category: NotificationCategory)
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(
-    private readonly prisma: PrismaService,
-    @InjectQueue('notifications') private readonly notifQueue: Queue,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async send(dto: SendNotificationDto) {
     // Check user preferences (only for non-IN_APP channels)
@@ -54,7 +49,7 @@ export class NotificationsService {
       }
     }
 
-    // Store in DB (Notification has no metadata field in schema)
+    // Store in DB (in-app delivery)
     const notification = await this.prisma.notification.create({
       data: {
         userId: dto.userId,
@@ -66,11 +61,9 @@ export class NotificationsService {
       },
     });
 
-    // Queue for delivery
-    await this.notifQueue.add(
-      'deliver',
-      { notificationId: notification.id, ...dto },
-      { attempts: 3, backoff: { type: 'exponential', delay: 2000 } },
+    // Dev delivery — log to console instead of Firebase/Twilio/Nodemailer
+    this.logger.log(
+      `[DEV NOTIFY] ${dto.channel} → user:${dto.userId} | ${dto.title}: ${dto.body}`,
     );
 
     return notification;
@@ -102,10 +95,6 @@ export class NotificationsService {
     });
   }
 
-  /**
-   * Update a single channel+category preference toggle.
-   * Schema uses flat boolean columns (pushOrders, emailPayments, etc.)
-   */
   async updatePreference(dto: {
     userId: string;
     channel: NotificationChannel;
