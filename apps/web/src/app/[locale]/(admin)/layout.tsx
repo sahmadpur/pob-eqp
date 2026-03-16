@@ -25,7 +25,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span className="font-bold text-lg">POB Admin</span>
             <div className="hidden md:flex items-center gap-6 text-sm">
               <Link href={`/${locale}/admin/dashboard`} className="hover:text-gray-300 transition-colors">Dashboard</Link>
+              <Link href={`/${locale}/admin/users`} className="hover:text-gray-300 transition-colors">Users</Link>
+              <Link href={`/${locale}/admin/planning`} className="hover:text-gray-300 transition-colors">Planning</Link>
               <Link href={`/${locale}/registrations`} className="hover:text-gray-300 transition-colors">Registrations</Link>
+              <Link href={`/${locale}/admin/system`} className="hover:text-gray-300 transition-colors">System Config</Link>
             </div>
           </div>
           <div className="flex items-center gap-4">
