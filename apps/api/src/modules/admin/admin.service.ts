@@ -59,14 +59,21 @@ export class AdminService {
         entity: 'User',
         entityId: userId,
         userId: deletedById,
-        payload: { before: { deletedAt: null },
-        after: { deletedAt: new Date().toISOString() } },
+        payload: {
+          before: { email: user.email, phone: user.phone, deletedAt: null },
+          after: { email: `deleted-${userId}@deleted.pob.local`, deletedAt: new Date().toISOString() },
+        },
       },
     });
 
+    // Anonymize email + phone so the unique constraint is freed for re-registration
     return this.prisma.user.update({
       where: { id: userId },
-      data: { deletedAt: new Date() },
+      data: {
+        deletedAt: new Date(),
+        email: `deleted-${userId}@deleted.pob.local`,
+        phone: `deleted-${userId}`,
+      },
     });
   }
 
