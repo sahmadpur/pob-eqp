@@ -23,15 +23,15 @@ export class SupportController {
       orderId?: string;
       isHardwareFailure?: boolean;
     },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
-    return this.supportService.createTicket({ ...dto, userId: req.user.sub });
+    return this.supportService.createTicket({ ...dto, userId: req.user.id });
   }
 
   @Get('tickets/me')
   @ApiOperation({ summary: 'Get my support tickets' })
-  async getMyTickets(@Request() req: { user: { sub: string } }) {
-    return this.supportService.getTicketsByUser(req.user.sub);
+  async getMyTickets(@Request() req: { user: { id: string; role: string; accountStatus: string } }) {
+    return this.supportService.getTicketsByUser(req.user.id);
   }
 
   @Get('tickets')
@@ -51,7 +51,7 @@ export class SupportController {
   ) {
     return this.supportService.replyToTicket({
       ticketId: id,
-      senderId: req.user.sub,
+      senderId: req.user.id,
       senderRole: req.user.role,
       body: dto.body,
     });

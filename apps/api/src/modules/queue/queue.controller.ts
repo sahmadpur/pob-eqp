@@ -41,12 +41,12 @@ export class QueueController {
   @ApiOperation({ summary: 'Execute non-working day cascade migration' })
   async executeCascade(
     @Body() dto: { planId: string; date: string },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
     return this.queueService.executeNonWorkingDayCascade(
       dto.planId,
       dto.date,
-      req.user.sub,
+      req.user.id,
     );
   }
 }

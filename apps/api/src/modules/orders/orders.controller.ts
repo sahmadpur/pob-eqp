@@ -17,15 +17,15 @@ export class OrdersController {
   @ApiOperation({ summary: 'Create a new order' })
   async createOrder(
     @Body() dto: Parameters<OrdersService['createOrder']>[0],
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
-    return this.ordersService.createOrder({ ...dto, userId: req.user.sub });
+    return this.ordersService.createOrder({ ...dto, userId: req.user.id });
   }
 
   @Get('me')
   @ApiOperation({ summary: 'Get my orders' })
-  async getMyOrders(@Request() req: { user: { sub: string } }) {
-    return this.ordersService.findByUser(req.user.sub);
+  async getMyOrders(@Request() req: { user: { id: string; role: string; accountStatus: string } }) {
+    return this.ordersService.findByUser(req.user.id);
   }
 
   @Get(':orderId')
@@ -57,12 +57,12 @@ export class OrdersController {
   async updateStatus(
     @Param('orderId') orderId: string,
     @Body() dto: { status: string; note?: string },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
     const [, event] = await this.ordersService.updateStatus(
       orderId,
       dto.status as Parameters<OrdersService['updateStatus']>[1],
-      req.user.sub,
+      req.user.id,
       dto.note,
     );
     return event;

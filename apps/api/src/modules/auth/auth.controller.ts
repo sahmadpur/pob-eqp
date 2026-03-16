@@ -55,10 +55,10 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Logout — invalidates current session token' })
   async logout(
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
     @Body() dto: RefreshTokenDto,
   ) {
-    await this.authService.logout(req.user.sub, dto.refreshToken);
+    await this.authService.logout(req.user.id, dto.refreshToken);
   }
 
   /** FR-AUTH-008, FR-AUTH-009 */

@@ -31,7 +31,7 @@ export class PaymentController {
   @ApiOperation({ summary: 'Confirm payment (Finance Officer or Admin)' })
   async confirm(
     @Param('paymentId') paymentId: string,
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
     return this.paymentService.confirmPayment(paymentId);
   }
@@ -43,7 +43,7 @@ export class PaymentController {
   async reject(
     @Param('paymentId') paymentId: string,
     @Body() dto: { reason: string },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
     return this.paymentService.rejectPayment(paymentId, dto.reason);
   }

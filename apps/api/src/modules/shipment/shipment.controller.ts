@@ -18,9 +18,9 @@ export class ShipmentController {
   @ApiOperation({ summary: 'Record gate check-in for an order' })
   async gateCheckIn(
     @Body() dto: { orderId: string; method: string; checksResult: Record<string, boolean>; vehiclePlate?: string },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
-    return this.shipmentService.recordGateCheckIn({ ...dto, operatorId: req.user.sub });
+    return this.shipmentService.recordGateCheckIn({ ...dto, operatorId: req.user.id });
   }
 
   @Patch(':orderId/loading-status')
@@ -29,12 +29,12 @@ export class ShipmentController {
   async updateLoading(
     @Param('orderId') orderId: string,
     @Body() dto: { loadingStatus: string; note?: string },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
     return this.shipmentService.updateLoadingStatus({
       orderId,
       loadingStatus: dto.loadingStatus as Parameters<ShipmentService['updateLoadingStatus']>[0]['loadingStatus'],
-      operatorId: req.user.sub,
+      operatorId: req.user.id,
       note: dto.note,
     });
   }
@@ -44,8 +44,8 @@ export class ShipmentController {
   @ApiOperation({ summary: 'Complete shipment for an order' })
   async complete(
     @Param('orderId') orderId: string,
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
-    return this.shipmentService.completeShipment(orderId, req.user.sub);
+    return this.shipmentService.completeShipment(orderId, req.user.id);
   }
 }

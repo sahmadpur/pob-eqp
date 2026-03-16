@@ -28,15 +28,15 @@ export class AdminController {
   async updateStatus(
     @Param('id') id: string,
     @Body() dto: { accountStatus: AccountStatus },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
-    return this.adminService.updateAccountStatus(id, dto.accountStatus, req.user.sub);
+    return this.adminService.updateAccountStatus(id, dto.accountStatus, req.user.id);
   }
 
   @Delete('users/:id')
   @ApiOperation({ summary: 'Soft-delete a user (7-year data retention)' })
-  async deleteUser(@Param('id') id: string, @Request() req: { user: { sub: string } }) {
-    return this.adminService.softDeleteUser(id, req.user.sub);
+  async deleteUser(@Param('id') id: string, @Request() req: { user: { id: string; role: string; accountStatus: string } }) {
+    return this.adminService.softDeleteUser(id, req.user.id);
   }
 
   @Get('config')
@@ -50,9 +50,9 @@ export class AdminController {
   async updateConfig(
     @Param('key') key: string,
     @Body() dto: { value: string },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
-    return this.adminService.upsertSystemConfig(key, dto.value, req.user.sub);
+    return this.adminService.upsertSystemConfig(key, dto.value, req.user.id);
   }
 
   @Get('audit-logs')

@@ -50,8 +50,8 @@ export class RegistrationController {
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Submit legal entity registration for Finance review' })
-  async submitForReview(@Request() req: { user: { sub: string } }) {
-    await this.registrationService.submitLegalForReview(req.user.sub);
+  async submitForReview(@Request() req: { user: { id: string; role: string; accountStatus: string } }) {
+    await this.registrationService.submitLegalForReview(req.user.id);
   }
 
   /** Get own registration profile */
@@ -59,8 +59,8 @@ export class RegistrationController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get current user registration profile' })
-  async getMyProfile(@Request() req: { user: { sub: string } }) {
-    return this.registrationService.findById(req.user.sub);
+  async getMyProfile(@Request() req: { user: { id: string; role: string; accountStatus: string } }) {
+    return this.registrationService.findById(req.user.id);
   }
 
   // ── Document Upload ────────────────────────────────────────────────────
@@ -90,12 +90,12 @@ export class RegistrationController {
   async uploadDocument(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: { documentType: string; legalProfileId?: string; orderId?: string },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string } },
   ) {
     if (!file) throw new BadRequestException('No file provided');
 
     const document = await this.documentService.saveUploadedFile({
-      uploadedById: req.user.sub,
+      uploadedById: req.user.id,
       documentType: body.documentType as DocumentType,
       contentType: file.mimetype,
       fileSize: file.size,
@@ -113,8 +113,8 @@ export class RegistrationController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get all documents for current user' })
-  async getMyDocuments(@Request() req: { user: { sub: string } }) {
-    return this.documentService.getDocumentsByUser(req.user.sub);
+  async getMyDocuments(@Request() req: { user: { id: string; role: string; accountStatus: string } }) {
+    return this.documentService.getDocumentsByUser(req.user.id);
   }
 
   // ── Finance Officer endpoints ──────────────────────────────────────────
@@ -149,12 +149,12 @@ export class RegistrationController {
   async reviewRegistration(
     @Param('userId') userId: string,
     @Body() dto: { action: 'APPROVE' | 'REJECT'; reason?: string },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
     await this.registrationService.reviewLegalRegistration(
       userId,
       dto.action,
-      req.user.sub,
+      req.user.id,
       dto.reason,
     );
   }

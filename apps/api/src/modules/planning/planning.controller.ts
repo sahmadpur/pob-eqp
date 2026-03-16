@@ -18,13 +18,13 @@ export class PlanningController {
   @ApiOperation({ summary: 'Create a new operational plan' })
   async createPlan(
     @Body() dto: { name: string; startDate: string; endDate: string; defaultDailyQuota?: number },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
     return this.planningService.createPlan({
       ...dto,
       startDate: new Date(dto.startDate),
       endDate: new Date(dto.endDate),
-      createdById: req.user.sub,
+      createdById: req.user.id,
     });
   }
 
@@ -45,7 +45,7 @@ export class PlanningController {
   @Patch('plans/:id/activate')
   @Roles(UserRole.ADMINISTRATOR)
   @ApiOperation({ summary: 'Activate a draft plan' })
-  async activatePlan(@Param('id') id: string, @Request() req: { user: { sub: string } }) {
-    return this.planningService.activatePlan(id, req.user.sub);
+  async activatePlan(@Param('id') id: string, @Request() req: { user: { id: string; role: string; accountStatus: string } }) {
+    return this.planningService.activatePlan(id, req.user.id);
   }
 }

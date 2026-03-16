@@ -13,28 +13,28 @@ export class NotificationsController {
 
   @Get()
   @ApiOperation({ summary: 'Get unread notifications' })
-  async getUnread(@Request() req: { user: { sub: string } }) {
-    return this.notificationsService.getUnread(req.user.sub);
+  async getUnread(@Request() req: { user: { id: string; role: string; accountStatus: string } }) {
+    return this.notificationsService.getUnread(req.user.id);
   }
 
   @Patch(':id/read')
   @ApiOperation({ summary: 'Mark notification as read' })
-  async markRead(@Param('id') id: string, @Request() req: { user: { sub: string } }) {
-    return this.notificationsService.markAsRead(id, req.user.sub);
+  async markRead(@Param('id') id: string, @Request() req: { user: { id: string; role: string; accountStatus: string } }) {
+    return this.notificationsService.markAsRead(id, req.user.id);
   }
 
   @Patch('read-all')
   @ApiOperation({ summary: 'Mark all notifications as read' })
-  async markAllRead(@Request() req: { user: { sub: string } }) {
-    return this.notificationsService.markAllAsRead(req.user.sub);
+  async markAllRead(@Request() req: { user: { id: string; role: string; accountStatus: string } }) {
+    return this.notificationsService.markAllAsRead(req.user.id);
   }
 
   @Post('preferences')
   @ApiOperation({ summary: 'Update notification preference' })
   async updatePreference(
     @Body() dto: { channel: NotificationChannel; category: NotificationCategory; enabled: boolean },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
-    return this.notificationsService.updatePreference({ userId: req.user.sub, ...dto });
+    return this.notificationsService.updatePreference({ userId: req.user.id, ...dto });
   }
 }

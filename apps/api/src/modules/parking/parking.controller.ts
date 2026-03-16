@@ -41,12 +41,12 @@ export class ParkingController {
   @ApiOperation({ summary: 'Assign a parking slot to an order' })
   async assignSlot(
     @Body() dto: { orderId: string; cargoType: string },
-    @Request() req: { user: { sub: string } },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
     return this.parkingService.assignParkingSlot(
       dto.orderId,
       dto.cargoType as Parameters<ParkingService['assignParkingSlot']>[1],
-      req.user.sub,
+      req.user.id,
     );
   }
 }
