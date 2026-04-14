@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { useRegistrationStore } from '@/store/registration.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -13,6 +13,8 @@ import type { UserSummary } from '@pob-eqp/shared';
 export default function VerifyOtpPage() {
   const locale = useLocale();
   const router = useRouter();
+  const t = useTranslations('verify');
+  const tReg = useTranslations('register');
   const params = useSearchParams();
 
   const identifier = params.get('identifier') ?? '';
@@ -60,7 +62,7 @@ export default function VerifyOtpPage() {
   const handleVerify = useCallback(async () => {
     const code = otp.join('');
     if (code.length < 6) {
-      setError('Please enter the 6-digit code');
+      setError(t('enterCode'));
       return;
     }
 
@@ -99,7 +101,7 @@ export default function VerifyOtpPage() {
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      setError(axiosErr.response?.data?.message ?? 'Invalid OTP code. Please try again.');
+      setError(axiosErr.response?.data?.message ?? t('invalidOtp'));
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } finally {
@@ -123,7 +125,7 @@ export default function VerifyOtpPage() {
       });
       setResendCooldown(60);
     } catch {
-      setError('Failed to resend code. Please try again.');
+      setError(t('resendFailed'));
     } finally {
       setResending(false);
     }
@@ -150,16 +152,16 @@ export default function VerifyOtpPage() {
             />
           ))}
         </div>
-        <span className="text-xs text-gray-400 ml-1">Step 3 of 4</span>
+        <span className="text-xs text-gray-400 ml-1">{tReg('step3of4')}</span>
       </div>
 
       <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
         <span className="text-3xl">📱</span>
       </div>
 
-      <h2 className="text-xl font-bold text-gray-800 mb-1">Verify Your Identity</h2>
+      <h2 className="text-xl font-bold text-gray-800 mb-1">{t('title')}</h2>
       <p className="text-gray-500 text-sm mb-1">
-        We sent a 6-digit code to
+        {t('sentCode')}
       </p>
       <p className="font-semibold text-gray-700 mb-5">{maskedIdentifier}</p>
 
@@ -196,27 +198,27 @@ export default function VerifyOtpPage() {
         disabled={loading || otp.some((d) => !d)}
         className="w-full py-2.5 bg-pob-blue text-white font-medium rounded-lg hover:bg-pob-blue-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-4"
       >
-        {loading ? 'Verifying...' : 'Verify Code'}
+        {loading ? t('verifying') : t('verifyBtn')}
       </button>
 
       {/* Resend */}
       <p className="text-sm text-gray-500">
-        Didn&apos;t receive the code?{' '}
+        {t('didNotReceive')}{' '}
         {resendCooldown > 0 ? (
-          <span className="text-gray-400">Resend in {resendCooldown}s</span>
+          <span className="text-gray-400">{t('resendIn', { seconds: resendCooldown })}</span>
         ) : (
           <button
             onClick={() => void handleResend()}
             disabled={resending}
             className="text-pob-blue hover:underline font-medium disabled:opacity-50"
           >
-            {resending ? 'Sending...' : 'Resend code'}
+            {resending ? t('sending') : t('resend')}
           </button>
         )}
       </p>
 
       <p className="text-xs text-gray-400 mt-4">
-        Code expires in {AUTH_CONSTANTS.OTP_EXPIRY_MINUTES} minutes
+        {t('codeExpires', { minutes: AUTH_CONSTANTS.OTP_EXPIRY_MINUTES })}
       </p>
     </div>
   );

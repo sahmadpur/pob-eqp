@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -55,6 +55,8 @@ type FormData = z.infer<typeof schema>;
 export default function IndividualRegisterPage() {
   const locale = useLocale();
   const router = useRouter();
+  const t = useTranslations('registerIndividual');
+  const tReg = useTranslations('register');
   const { setIndividualDraft, setUserId, setIdentifier } = useRegistrationStore();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -95,7 +97,7 @@ export default function IndividualRegisterPage() {
       router.push(`/${locale}/verify?identifier=${identifierParam}&type=individual`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      setError(axiosErr.response?.data?.message ?? 'Registration failed. Please try again.');
+      setError(axiosErr.response?.data?.message ?? t('registrationFailed'));
     } finally {
       setLoading(false);
     }
@@ -111,10 +113,10 @@ export default function IndividualRegisterPage() {
     if (/[0-9]/.test(pwd)) score++;
     if (/[^A-Za-z0-9]/.test(pwd)) score++;
     if (pwd.length >= 12) score++;
-    if (score <= 2) return { label: 'Weak', color: 'bg-red-500', width: 'w-1/4' };
-    if (score === 3) return { label: 'Fair', color: 'bg-amber-400', width: 'w-2/4' };
-    if (score === 4) return { label: 'Good', color: 'bg-blue-500', width: 'w-3/4' };
-    return { label: 'Strong', color: 'bg-green-500', width: 'w-full' };
+    if (score <= 2) return { label: t('passwordWeak'), color: 'bg-red-500', width: 'w-1/4' };
+    if (score === 3) return { label: t('passwordFair'), color: 'bg-amber-400', width: 'w-2/4' };
+    if (score === 4) return { label: t('passwordGood'), color: 'bg-blue-500', width: 'w-3/4' };
+    return { label: t('passwordStrong'), color: 'bg-green-500', width: 'w-full' };
   };
 
   const strength = passwordStrength(password ?? '');
@@ -131,17 +133,17 @@ export default function IndividualRegisterPage() {
             />
           ))}
         </div>
-        <span className="text-xs text-gray-400 ml-1">Step 2 of 4</span>
+        <span className="text-xs text-gray-400 ml-1">{tReg('step2of4')}</span>
       </div>
 
       <div className="flex items-center gap-2 mb-1">
         <Link href={`/${locale}/register`} className="text-gray-400 hover:text-gray-600">
           ←
         </Link>
-        <h2 className="text-xl font-bold text-gray-800">Personal Details</h2>
+        <h2 className="text-xl font-bold text-gray-800">{t('title')}</h2>
       </div>
       <p className="text-gray-500 text-sm mb-5">
-        Individual customer · All fields marked * are required
+        {t('subtitle')}
       </p>
 
       {error && (
@@ -154,7 +156,7 @@ export default function IndividualRegisterPage() {
         {/* Name row */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">First Name *</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{t('firstName')} *</label>
             <input
               {...register('firstName')}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue"
@@ -163,7 +165,7 @@ export default function IndividualRegisterPage() {
             {errors.firstName && <p className="mt-1 text-xs text-red-600">{errors.firstName.message}</p>}
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Last Name *</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{t('lastName')} *</label>
             <input
               {...register('lastName')}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue"
@@ -175,7 +177,7 @@ export default function IndividualRegisterPage() {
 
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
-            Father&apos;s Name <span className="text-gray-400">(optional)</span>
+            {t('fathersName')} <span className="text-gray-400">({t('optional')})</span>
           </label>
           <input
             {...register('fathersName')}
@@ -186,7 +188,7 @@ export default function IndividualRegisterPage() {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Date of Birth *</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{t('dateOfBirth')} *</label>
             <input
               {...register('dateOfBirth')}
               type="date"
@@ -196,7 +198,7 @@ export default function IndividualRegisterPage() {
             {errors.dateOfBirth && <p className="mt-1 text-xs text-red-600">{errors.dateOfBirth.message}</p>}
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">National ID / Passport *</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{t('nationalId')} *</label>
             <input
               {...register('nationalIdOrPassport')}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue uppercase"
@@ -210,17 +212,18 @@ export default function IndividualRegisterPage() {
 
         <div className="border-t border-gray-100 pt-4">
           <p className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wider">
-            Contact & Login
+            {t('contactLogin')}
           </p>
           <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Email <span className="text-gray-400">(required if no phone)</span>
+                {t('email')} <span className="text-gray-400">({t('emailRequired')})</span>
               </label>
               <input
                 {...register('email')}
                 type="email"
                 autoComplete="email"
+                suppressHydrationWarning
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue"
                 placeholder="ali@example.com"
               />
@@ -228,7 +231,7 @@ export default function IndividualRegisterPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Phone <span className="text-gray-400">(E.164 format)</span>
+                {t('phone')} <span className="text-gray-400">({t('phoneFormat')})</span>
               </label>
               <input
                 {...register('phone')}
@@ -243,11 +246,12 @@ export default function IndividualRegisterPage() {
 
         <div className="border-t border-gray-100 pt-4 space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Password *</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{t('password')} *</label>
             <input
               {...register('password')}
               type="password"
               autoComplete="new-password"
+                suppressHydrationWarning
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue"
             />
             {password && (
@@ -261,7 +265,7 @@ export default function IndividualRegisterPage() {
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Min 8 chars, uppercase, number, special character
+                  {t('passwordHint')}
                 </p>
               </div>
             )}
@@ -269,11 +273,12 @@ export default function IndividualRegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Confirm Password *</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">{t('confirmPassword')} *</label>
             <input
               {...register('confirmPassword')}
               type="password"
               autoComplete="new-password"
+                suppressHydrationWarning
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue"
             />
             {errors.confirmPassword && (
@@ -283,7 +288,7 @@ export default function IndividualRegisterPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Preferred Language</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">{t('preferredLanguage')}</label>
           <select
             {...register('preferredLanguage')}
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue"
@@ -300,7 +305,7 @@ export default function IndividualRegisterPage() {
           disabled={loading}
           className="w-full py-2.5 bg-pob-blue text-white font-medium rounded-lg hover:bg-pob-blue-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors mt-2"
         >
-          {loading ? 'Creating account...' : 'Continue →'}
+          {loading ? t('creatingAccount') : t('continueBtn')}
         </button>
       </form>
     </>

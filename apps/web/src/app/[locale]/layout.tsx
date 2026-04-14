@@ -7,7 +7,7 @@ import { locales } from '../../i18n';
 import { StoreHydrator } from '@/components/store-hydrator';
 import '../globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
   title: 'Port of Baku E-Queue Platform',
@@ -32,7 +32,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <NextIntlClientProvider messages={messages}>
+        <NextIntlClientProvider locale={locale} messages={messages}>
           <StoreHydrator />
           {children}
         </NextIntlClientProvider>

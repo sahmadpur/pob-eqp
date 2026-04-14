@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { DocumentUploader } from '@/components/registration/document-uploader';
 import { useRegistrationStore } from '@/store/registration.store';
 
@@ -12,6 +12,8 @@ import { useRegistrationStore } from '@/store/registration.store';
 export default function LegalDocumentsPage() {
   const locale = useLocale();
   const router = useRouter();
+  const t = useTranslations('registerLegalDocuments');
+  const tReg = useTranslations('register');
   const { addDocumentUpload } = useRegistrationStore();
 
   const [regCertUploaded, setRegCertUploaded] = useState(false);
@@ -32,12 +34,12 @@ export default function LegalDocumentsPage() {
             />
           ))}
         </div>
-        <span className="text-xs text-gray-400 ml-1">Step 4 of 5</span>
+        <span className="text-xs text-gray-400 ml-1">{tReg('step4of5')}</span>
       </div>
 
-      <h2 className="text-xl font-bold text-gray-800 mb-1">Company Documents</h2>
+      <h2 className="text-xl font-bold text-gray-800 mb-1">{t('title')}</h2>
       <p className="text-gray-500 text-sm mb-5">
-        Upload your company&apos;s registration documents for Finance review.
+        {t('subtitle')}
       </p>
 
       <div className="space-y-5">
@@ -45,14 +47,14 @@ export default function LegalDocumentsPage() {
         <div className="p-4 border border-gray-200 rounded-xl space-y-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded">
-              Required
+              {t('required')}
             </span>
           </div>
 
           <DocumentUploader
             documentType="COMPANY_CERTIFICATE"
-            label="Company Registration Certificate"
-            description="Official state registration certificate (Dövlət qeydiyyatı şəhadətnaməsi)"
+            label={t('companyCert')}
+            description={t('companyCertDesc')}
             required
             onUploaded={(f) => {
               addDocumentUpload(f.s3Key);
@@ -63,8 +65,8 @@ export default function LegalDocumentsPage() {
 
           <DocumentUploader
             documentType="TAX_CERTIFICATE"
-            label="Tax Registration Certificate"
-            description="VÖEN / Tax identification certificate issued by Ministry of Taxes"
+            label={t('taxCert')}
+            description={t('taxCertDesc')}
             required
             onUploaded={(f) => {
               addDocumentUpload(f.s3Key);
@@ -78,14 +80,14 @@ export default function LegalDocumentsPage() {
         <div className="p-4 border border-gray-200 rounded-xl space-y-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-              Optional
+              {t('optional')}
             </span>
           </div>
 
           <DocumentUploader
             documentType="CONTRACT"
-            label="Port Contract / Agreement"
-            description="If your company has an existing contract with Port of Baku"
+            label={t('portContract')}
+            description={t('portContractDesc')}
             onUploaded={(f) => {
               addDocumentUpload(f.s3Key);
               setAdditionalCount((n) => n + 1);
@@ -95,8 +97,8 @@ export default function LegalDocumentsPage() {
 
           <DocumentUploader
             documentType="ADDITIONAL"
-            label="Additional Supporting Documents"
-            description="Any other supporting documents (max 5 total)"
+            label={t('additionalDocs')}
+            description={t('additionalDocsDesc')}
             maxFiles={Math.max(0, 3 - additionalCount)}
             onUploaded={(f) => {
               addDocumentUpload(f.s3Key);
@@ -109,9 +111,7 @@ export default function LegalDocumentsPage() {
 
       <div className="mt-5 p-3.5 bg-blue-50 border border-blue-100 rounded-xl">
         <p className="text-xs text-blue-700 leading-relaxed">
-          <strong>Finance Review:</strong> Your documents will be reviewed by a Finance Officer
-          within 1–2 business days. You will be notified via email/SMS once a decision is made.
-          Ensure all documents are clear, legible, and not expired.
+          <strong>{t('financeReviewNote')}:</strong> {t('financeReviewText')}
         </p>
       </div>
 
@@ -120,20 +120,20 @@ export default function LegalDocumentsPage() {
           onClick={() => router.back()}
           className="py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
         >
-          ← Back
+          {t('back')}
         </button>
         <button
           onClick={() => router.push(`/${locale}/register/legal/review`)}
           disabled={!canContinue}
           className="py-2.5 bg-pob-blue text-white font-medium rounded-lg hover:bg-pob-blue-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          Review & Submit →
+          {t('reviewSubmit')}
         </button>
       </div>
 
       {!canContinue && (
         <p className="text-center text-xs text-gray-400 mt-3">
-          Registration certificate and tax certificate are required
+          {t('certsRequired')}
         </p>
       )}
     </>

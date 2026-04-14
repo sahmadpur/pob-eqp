@@ -2,27 +2,26 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
-import { DocumentType } from '@pob-eqp/shared';
 
 interface Document {
   id: string;
-  documentType: string;
-  fileName: string;
-  fileSize: number;
-  contentType: string;
+  type: string;             // Prisma field name (not documentType)
+  originalFileName: string; // Prisma field name (not fileName)
+  fileSizeBytes: number;    // Prisma field name (not fileSize)
+  mimeType: string;         // Prisma field name (not contentType)
   s3Key: string;
   createdAt: string;
 }
 
 interface Review {
   id: string;
-  action: string;
-  reason: string | null;
+  action: string;           // 'APPROVE' | 'DECLINE' (not 'REJECT')
+  declineReason: string | null; // Prisma field name (not reason)
+  cycleNumber: number;
   createdAt: string;
-  reviewedBy?: { email: string | null };
 }
 
 interface RegistrationDetail {
@@ -39,16 +38,20 @@ interface RegistrationDetail {
     registrationStatus: string;
     updatedAt: string;
     documents: Document[];
-    reviews: Review[];
+    registrationReviews: Review[]; // Prisma relation name (not reviews)
   } | null;
 }
 
 type Action = 'APPROVE' | 'REJECT' | null;
 
+// Base URL for the files endpoint (no trailing slash, compile-time constant)
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api/v1').replace(/\/$/, '');
+
 // P1-F02: Finance Officer — registration review detail
 export default function FinanceReviewDetailPage() {
   const locale = useLocale();
   const router = useRouter();
+  const t = useTranslations('financeReview');
   const params = useParams<{ userId: string }>();
   const userId = params.userId;
 
@@ -59,7 +62,6 @@ export default function FinanceReviewDetailPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [downloadUrls, setDownloadUrls] = useState<Record<string, string>>({});
 
   // Checklist state (Finance review checklist — 4 items per BRD)
   const [checklist, setChecklist] = useState({
@@ -77,7 +79,7 @@ export default function FinanceReviewDetailPage() {
         );
         setData(res.data.data);
       } catch {
-        setError('Failed to load registration details.');
+        setError(t('failedToLoad'));
       } finally {
         setLoading(false);
       }
@@ -85,21 +87,9 @@ export default function FinanceReviewDetailPage() {
     void fetch();
   }, [userId]);
 
-  const fetchDownloadUrl = async (s3Key: string) => {
-    if (downloadUrls[s3Key]) {
-      window.open(downloadUrls[s3Key], '_blank');
-      return;
-    }
-    try {
-      const res = await apiClient.get<{ data: { url: string } }>(
-        `/registration/documents/${encodeURIComponent(s3Key)}/download-url`,
-      );
-      const url = res.data.data.url;
-      setDownloadUrls((prev) => ({ ...prev, [s3Key]: url }));
-      window.open(url, '_blank');
-    } catch {
-      alert('Failed to load document. Please try again.');
-    }
+  const openDocument = (s3Key: string) => {
+    // Files are served directly by FilesController at GET /api/v1/files/:key
+    window.open(`${API_BASE}/files/${s3Key}`, '_blank');
   };
 
   const allChecked = Object.values(checklist).every(Boolean);
@@ -109,11 +99,11 @@ export default function FinanceReviewDetailPage() {
   const handleSubmit = async () => {
     if (!action) return;
     if (action === 'REJECT' && !canReject) {
-      setSubmitError('Please provide a rejection reason (min 10 characters).');
+      setSubmitError(t('rejectReasonMin'));
       return;
     }
     if (action === 'APPROVE' && !canApprove) {
-      setSubmitError('Please complete all checklist items before approving.');
+      setSubmitError(t('completeChecklistFirst'));
       return;
     }
 
@@ -127,7 +117,7 @@ export default function FinanceReviewDetailPage() {
       router.push(`/${locale}/registrations`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      setSubmitError(axiosErr.response?.data?.message ?? 'Submission failed. Please try again.');
+      setSubmitError(axiosErr.response?.data?.message ?? t('submissionFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -157,16 +147,16 @@ export default function FinanceReviewDetailPage() {
   if (error || !data?.legalProfile) {
     return (
       <div className="text-center py-16">
-        <p className="text-red-600 text-sm mb-3">{error ?? 'Registration not found.'}</p>
+        <p className="text-red-600 text-sm mb-3">{error ?? t('notFound')}</p>
         <Link href={`/${locale}/registrations`} className="text-pob-blue hover:underline text-sm">
-          ← Back to list
+          {t('backToList')}
         </Link>
       </div>
     );
   }
 
   const lp = data.legalProfile;
-  const previousReviews = lp.reviews ?? [];
+  const previousReviews = lp.registrationReviews ?? [];
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -180,11 +170,11 @@ export default function FinanceReviewDetailPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{lp.companyName}</h1>
-          <p className="text-gray-500 text-sm">Legal entity registration review</p>
+          <p className="text-gray-500 text-sm">{t('subtitle')}</p>
         </div>
         {previousReviews.length > 0 && (
           <span className="ml-auto bg-amber-100 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">
-            Re-submission #{previousReviews.length + 1}
+            {t('resubmission', { count: previousReviews.length + 1 })}
           </span>
         )}
       </div>
@@ -195,18 +185,18 @@ export default function FinanceReviewDetailPage() {
           {/* Company details */}
           <section className="bg-white border border-gray-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider">
-              Company Information
+              {t('companyInfo')}
             </h2>
             <dl className="space-y-3">
               {[
-                { label: 'Company Name', value: lp.companyName },
-                { label: 'Tax ID (VÖEN)', value: lp.taxRegistrationId },
-                { label: 'Contact Person', value: lp.contactPersonName },
-                { label: 'Contact Phone', value: lp.contactPersonPhone ?? '—' },
-                { label: 'Email', value: data.email ?? '—' },
-                { label: 'Phone', value: data.phone ?? '—' },
+                { label: t('companyName'), value: lp.companyName },
+                { label: t('taxId'), value: lp.taxRegistrationId },
+                { label: t('contactPerson'), value: lp.contactPersonName },
+                { label: t('contactPhone'), value: lp.contactPersonPhone ?? '—' },
+                { label: t('email'), value: data.email ?? '—' },
+                { label: t('phone'), value: data.phone ?? '—' },
                 {
-                  label: 'Registered',
+                  label: t('registered'),
                   value: new Date(data.createdAt).toLocaleDateString('en-GB', {
                     day: '2-digit', month: 'short', year: 'numeric',
                   }),
@@ -223,10 +213,10 @@ export default function FinanceReviewDetailPage() {
           {/* Documents */}
           <section className="bg-white border border-gray-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider">
-              Uploaded Documents ({lp.documents.length})
+              {t('uploadedDocs', { count: lp.documents.length })}
             </h2>
             {lp.documents.length === 0 ? (
-              <p className="text-sm text-gray-400 italic">No documents uploaded.</p>
+              <p className="text-sm text-gray-400 italic">{t('noDocs')}</p>
             ) : (
               <div className="space-y-3">
                 {lp.documents.map((doc) => (
@@ -235,20 +225,20 @@ export default function FinanceReviewDetailPage() {
                     className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
                   >
                     <span className="text-2xl flex-shrink-0">
-                      {doc.contentType === 'application/pdf' ? '📄' : '🖼️'}
+                      {doc.mimeType === 'application/pdf' ? '📄' : '🖼️'}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{doc.fileName}</p>
+                      <p className="text-sm font-medium text-gray-800 truncate">{doc.originalFileName}</p>
                       <p className="text-xs text-gray-500">
-                        {DOCUMENT_LABELS[doc.documentType] ?? doc.documentType} ·{' '}
-                        {formatFileSize(doc.fileSize)}
+                        {DOCUMENT_LABELS[doc.type] ?? doc.type} ·{' '}
+                        {formatFileSize(doc.fileSizeBytes)}
                       </p>
                     </div>
                     <button
-                      onClick={() => void fetchDownloadUrl(doc.s3Key)}
+                      onClick={() => openDocument(doc.s3Key)}
                       className="flex-shrink-0 text-xs text-pob-blue hover:underline font-medium"
                     >
-                      View ↗
+                      {t('viewDoc')}
                     </button>
                   </div>
                 ))}
@@ -260,14 +250,14 @@ export default function FinanceReviewDetailPage() {
           {previousReviews.length > 0 && (
             <section className="bg-white border border-gray-200 rounded-xl p-5">
               <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider">
-                Review History
+                {t('reviewHistory')}
               </h2>
               <div className="space-y-3">
                 {previousReviews.map((review, i) => (
                   <div
                     key={review.id}
                     className={`p-3 rounded-lg border ${
-                      review.action === 'REJECT'
+                      review.action === 'DECLINE'
                         ? 'bg-red-50 border-red-200'
                         : 'bg-green-50 border-green-200'
                     }`}
@@ -275,17 +265,18 @@ export default function FinanceReviewDetailPage() {
                     <div className="flex items-center justify-between">
                       <span
                         className={`text-xs font-bold uppercase ${
-                          review.action === 'REJECT' ? 'text-red-600' : 'text-green-600'
+                          review.action === 'DECLINE' ? 'text-red-600' : 'text-green-600'
                         }`}
                       >
-                        {review.action === 'REJECT' ? '✕ Rejected' : '✓ Approved'}
+                        {review.action === 'DECLINE' ? t('rejected') : t('approved')}
+                        {review.cycleNumber ? ` (${t('cycle', { num: review.cycleNumber })})` : ''}
                       </span>
                       <span className="text-xs text-gray-400">
                         {new Date(review.createdAt).toLocaleDateString()}
                       </span>
                     </div>
-                    {review.reason && (
-                      <p className="text-sm text-gray-700 mt-1">{review.reason}</p>
+                    {review.declineReason && (
+                      <p className="text-sm text-gray-700 mt-1">{review.declineReason}</p>
                     )}
                   </div>
                 ))}
@@ -299,15 +290,15 @@ export default function FinanceReviewDetailPage() {
           {/* Verification checklist */}
           <section className="bg-white border border-gray-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider">
-              Verification Checklist
+              {t('verificationChecklist')}
             </h2>
             <div className="space-y-3">
               {(
                 [
-                  ['companyNameVerified', 'Company name matches official registration'],
-                  ['taxIdVerified', 'VÖEN is valid and matches tax certificate'],
-                  ['documentsLegible', 'All documents are legible and authentic'],
-                  ['noSuspiciousActivity', 'No suspicious activity or fraud indicators'],
+                  ['companyNameVerified', t('checkCompanyName')],
+                  ['taxIdVerified', t('checkTaxId')],
+                  ['documentsLegible', t('checkDocs')],
+                  ['noSuspiciousActivity', t('checkNoFraud')],
                 ] as [keyof typeof checklist, string][]
               ).map(([key, label]) => (
                 <label key={key} className="flex items-start gap-2.5 cursor-pointer group">
@@ -327,7 +318,7 @@ export default function FinanceReviewDetailPage() {
             </div>
             {allChecked && (
               <p className="mt-3 text-xs text-green-600 font-medium flex items-center gap-1">
-                <span>✓</span> All items verified
+                <span>✓</span> {t('allVerified')}
               </p>
             )}
           </section>
@@ -335,7 +326,7 @@ export default function FinanceReviewDetailPage() {
           {/* Decision */}
           <section className="bg-white border border-gray-200 rounded-xl p-5">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider">
-              Decision
+              {t('decision')}
             </h2>
 
             <div className="grid grid-cols-2 gap-2 mb-4">
@@ -347,7 +338,7 @@ export default function FinanceReviewDetailPage() {
                     : 'border-green-300 text-green-700 hover:bg-green-50'
                 }`}
               >
-                ✓ Approve
+                {t('approveBtn')}
               </button>
               <button
                 onClick={() => setAction('REJECT')}
@@ -357,24 +348,24 @@ export default function FinanceReviewDetailPage() {
                     : 'border-red-300 text-red-700 hover:bg-red-50'
                 }`}
               >
-                ✕ Reject
+                {t('rejectBtn')}
               </button>
             </div>
 
             {action === 'REJECT' && (
               <div className="mb-4">
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Rejection Reason <span className="text-red-500">*</span>
+                  {t('rejectionReason')} <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   rows={4}
-                  placeholder="Explain clearly why this registration is being rejected and what the applicant needs to correct before resubmitting..."
+                  placeholder={t('rejectionPlaceholder')}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue resize-none"
                 />
                 <p className="text-xs text-gray-400 mt-1 text-right">
-                  {rejectReason.length} chars (min 10)
+                  {t('charsMin', { count: rejectReason.length })}
                 </p>
               </div>
             )}
@@ -400,16 +391,16 @@ export default function FinanceReviewDetailPage() {
                 }`}
               >
                 {submitting
-                  ? 'Submitting...'
+                  ? t('submitting')
                   : action === 'APPROVE'
-                    ? 'Confirm Approval'
-                    : 'Confirm Rejection'}
+                    ? t('confirmApproval')
+                    : t('confirmRejection')}
               </button>
             )}
 
             {action === 'APPROVE' && !allChecked && (
               <p className="text-xs text-amber-600 text-center mt-2">
-                Complete all checklist items to approve
+                {t('completeChecklist')}
               </p>
             )}
           </section>
@@ -417,9 +408,7 @@ export default function FinanceReviewDetailPage() {
           {/* BRD note */}
           <div className="p-3.5 bg-blue-50 border border-blue-100 rounded-xl">
             <p className="text-xs text-blue-700 leading-relaxed">
-              <strong>Note:</strong> Maximum 2 review cycles per legal entity. If this is the
-              second rejection, the applicant must contact support for manual processing.
-              All decisions are logged in the audit trail.
+              <strong>Note:</strong> {t('brdNote')}
             </p>
           </div>
         </div>

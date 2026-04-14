@@ -1,41 +1,43 @@
 'use client';
 
 import Link from 'next/link';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useAuthStore } from '@/store/auth.store';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
-
-const ROLE_NAV: Record<string, { label: string; href: (locale: string) => string }[]> = {
-  CONTROL_TOWER_OPERATOR: [
-    { label: 'Dashboard', href: (l) => `/${l}/operations/dashboard` },
-  ],
-  GATE_OFFICER: [
-    { label: 'Gate', href: (l) => `/${l}/operations/gate` },
-  ],
-  PARKING_CHECKER: [
-    { label: 'Parking', href: (l) => `/${l}/operations/parking` },
-  ],
-  BORDER_OFFICER: [
-    { label: 'Border', href: (l) => `/${l}/operations/border` },
-  ],
-  TERMINAL_OPERATOR: [
-    { label: 'Terminal', href: (l) => `/${l}/operations/terminal` },
-  ],
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  CONTROL_TOWER_OPERATOR: 'Control Tower',
-  GATE_OFFICER: 'Gate Officer',
-  PARKING_CHECKER: 'Parking Checker',
-  BORDER_OFFICER: 'Border Officer',
-  TERMINAL_OPERATOR: 'Terminal Operator',
-};
+import { LocaleSwitcher } from '@/components/layout/locale-switcher';
 
 export default function OperationsLayout({ children }: { children: React.ReactNode }) {
   const locale = useLocale();
+  const t = useTranslations('operations');
   const { user, clearAuth, refreshToken } = useAuthStore();
   const router = useRouter();
+
+  const ROLE_NAV: Record<string, { label: string; href: (locale: string) => string }[]> = {
+    CONTROL_TOWER_OPERATOR: [
+      { label: t('navDashboard'), href: (l) => `/${l}/operations/dashboard` },
+    ],
+    GATE_OFFICER: [
+      { label: t('navGate'), href: (l) => `/${l}/operations/gate` },
+    ],
+    PARKING_CHECKER: [
+      { label: t('navParking'), href: (l) => `/${l}/operations/parking` },
+    ],
+    BORDER_OFFICER: [
+      { label: t('navBorder'), href: (l) => `/${l}/operations/border` },
+    ],
+    TERMINAL_OPERATOR: [
+      { label: t('navTerminal'), href: (l) => `/${l}/operations/terminal` },
+    ],
+  };
+
+  const ROLE_LABELS: Record<string, string> = {
+    CONTROL_TOWER_OPERATOR: t('roleLabelControlTower'),
+    GATE_OFFICER:           t('roleLabelGateOfficer'),
+    PARKING_CHECKER:        t('roleLabelParkingChecker'),
+    BORDER_OFFICER:         t('roleLabelBorderOfficer'),
+    TERMINAL_OPERATOR:      t('roleLabelTerminalOperator'),
+  };
 
   const handleLogout = async () => {
     try { await apiClient.post('/auth/logout', { refreshToken }); } catch {}
@@ -44,7 +46,7 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
   };
 
   const navLinks = (user?.role ? ROLE_NAV[user.role] : null) ?? [];
-  const portalLabel = user?.role ? (ROLE_LABELS[user.role] ?? 'Operations') : 'Operations';
+  const portalLabel = user?.role ? (ROLE_LABELS[user.role] ?? t('roleLabelOperations')) : t('roleLabelOperations');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -67,13 +69,14 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <span className="text-sm text-slate-400">{user?.email}</span>
+            <LocaleSwitcher variant="dark" />
             <button
               onClick={handleLogout}
               className="text-sm bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors"
             >
-              Logout
+              {t('logout')}
             </button>
           </div>
         </div>

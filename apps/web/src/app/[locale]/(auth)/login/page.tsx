@@ -56,10 +56,10 @@ export default function LoginPage() {
 
       router.push(roleRedirects[user.role] ?? `/${locale}/customer/dashboard`);
     } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
       const message =
-        err instanceof Error
-          ? err.message
-          : 'Login failed. Please check your credentials.';
+        axiosErr.response?.data?.message ??
+        (err instanceof Error ? err.message : 'Login failed. Please check your credentials.');
       setError(message);
     } finally {
       setLoading(false);
@@ -85,6 +85,7 @@ export default function LoginPage() {
             {...register('identifier')}
             type="text"
             autoComplete="username"
+            suppressHydrationWarning
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue focus:border-transparent"
             placeholder="example@email.com"
           />
@@ -101,6 +102,7 @@ export default function LoginPage() {
             {...register('password')}
             type="password"
             autoComplete="current-password"
+            suppressHydrationWarning
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue focus:border-transparent"
           />
           {errors.password && (

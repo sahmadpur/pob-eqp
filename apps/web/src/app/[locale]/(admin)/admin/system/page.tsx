@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
 interface ConfigEntry {
@@ -11,17 +12,19 @@ interface ConfigEntry {
   saving: boolean;
 }
 
-const CONFIG_DESCRIPTIONS: Record<string, { label: string; description: string; unit?: string }> = {
-  QUEUE_PRIORITY_PCT: { label: 'Priority Queue %', description: 'Percentage of slots reserved for Priority queue (BRD: 10)', unit: '%' },
-  QUEUE_FAST_TRACK_PCT: { label: 'Fast-Track Queue %', description: 'Percentage of slots reserved for Fast-Track queue (BRD: 10)', unit: '%' },
-  QUEUE_REGULAR_PCT: { label: 'Regular Queue %', description: 'Percentage of slots for Regular queue (BRD: 80)', unit: '%' },
-  NO_SHOW_FINE_AMOUNT: { label: 'No-Show Fine', description: 'Fine amount issued for no-show events (BRD: 50 AZN)', unit: 'AZN' },
-  NO_SHOW_TIMER_MINUTES: { label: 'No-Show Timer', description: 'Minutes before a no-show fine is triggered (BRD: 30)', unit: 'min' },
-  SLOT_RESERVATION_MINUTES: { label: 'Slot Reservation Timer', description: 'Minutes to hold a slot while order is being placed (BRD: 15)', unit: 'min' },
-  MAX_LEGAL_REVIEW_CYCLES: { label: 'Max Review Cycles', description: 'Maximum Finance review cycles for legal entity registration (BRD: 2)' },
-};
-
 export default function SystemConfigPage() {
+  const t = useTranslations('systemConfig');
+
+  const CONFIG_DESCRIPTIONS: Record<string, { label: string; description: string; unit?: string }> = {
+    QUEUE_PRIORITY_PCT:    { label: t('cfgPriorityPctLabel'),    description: t('cfgPriorityPctDesc'),    unit: '%' },
+    QUEUE_FAST_TRACK_PCT:  { label: t('cfgFastTrackPctLabel'),   description: t('cfgFastTrackPctDesc'),   unit: '%' },
+    QUEUE_REGULAR_PCT:     { label: t('cfgRegularPctLabel'),      description: t('cfgRegularPctDesc'),      unit: '%' },
+    NO_SHOW_FINE_AMOUNT:   { label: t('cfgNoShowFineLabel'),      description: t('cfgNoShowFineDesc'),      unit: 'AZN' },
+    NO_SHOW_TIMER_MINUTES: { label: t('cfgNoShowTimerLabel'),     description: t('cfgNoShowTimerDesc'),     unit: 'min' },
+    SLOT_RESERVATION_MINUTES: { label: t('cfgSlotReservationLabel'), description: t('cfgSlotReservationDesc'), unit: 'min' },
+    MAX_LEGAL_REVIEW_CYCLES:  { label: t('cfgMaxReviewCyclesLabel'),  description: t('cfgMaxReviewCyclesDesc') },
+  };
+
   const [entries, setEntries] = useState<ConfigEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,7 +45,7 @@ export default function SystemConfigPage() {
         })),
       );
     } catch {
-      setError('Failed to load system configuration');
+      setError(t('failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -73,7 +76,7 @@ export default function SystemConfigPage() {
       );
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      alert(msg ?? 'Failed to save');
+      alert(msg ?? t('failedToSave'));
       setEntries((prev) => prev.map((e) => (e.key === key ? { ...e, saving: false } : e)));
     }
   };
@@ -96,14 +99,14 @@ export default function SystemConfigPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">System Configuration</h1>
-          <p className="text-gray-500 mt-1">Live platform settings — changes take effect immediately</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-gray-500 mt-1">{t('subtitle')}</p>
         </div>
         <button
           onClick={fetchConfig}
           className="text-sm bg-white border border-gray-300 hover:border-gray-400 px-4 py-2 rounded-lg transition-colors"
         >
-          ↻ Refresh
+          {t('refresh')}
         </button>
       </div>
 
@@ -112,9 +115,9 @@ export default function SystemConfigPage() {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3">
           <span className="text-xl">⚠️</span>
           <div>
-            <p className="font-semibold text-amber-800 text-sm">Queue Split Violation</p>
+            <p className="font-semibold text-amber-800 text-sm">{t('queueSplitViolation')}</p>
             <p className="text-amber-700 text-sm">
-              Priority + Fast-Track + Regular must sum to 100%. Currently: {queueTotal}%.
+              {t('queueSplitDesc', { current: queueTotal })}
             </p>
           </div>
         </div>
@@ -127,14 +130,14 @@ export default function SystemConfigPage() {
       {loading ? (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-gray-400">
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          Loading configuration…
+          {t('loading')}
         </div>
       ) : entries.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center">
           <div className="text-4xl mb-3">⚙️</div>
-          <h3 className="text-lg font-semibold text-gray-700">No Configuration Found</h3>
+          <h3 className="text-lg font-semibold text-gray-700">{t('noConfigTitle')}</h3>
           <p className="text-gray-400 text-sm mt-2">
-            Run the seed script to populate default values:
+            {t('noConfigDesc')}
           </p>
           <code className="block mt-3 bg-gray-100 rounded-lg p-3 text-sm text-gray-700 text-left">
             docker compose exec -w /app/apps/api api npm run db:seed
@@ -176,13 +179,13 @@ export default function SystemConfigPage() {
                         disabled={entry.saving}
                         className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                       >
-                        {entry.saving ? '…' : 'Save'}
+                        {entry.saving ? t('saving') : t('save')}
                       </button>
                       <button
                         onClick={() => cancelEdit(entry.key)}
                         className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1.5 transition-colors"
                       >
-                        Cancel
+                        {t('cancel')}
                       </button>
                     </>
                   ) : (
@@ -194,7 +197,7 @@ export default function SystemConfigPage() {
                         onClick={() => startEdit(entry.key)}
                         className="text-xs text-blue-600 hover:text-blue-800 font-medium px-2 py-1.5 transition-colors"
                       >
-                        Edit
+                        {t('edit')}
                       </button>
                     </>
                   )}

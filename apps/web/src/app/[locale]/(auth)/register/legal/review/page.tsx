@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { useRegistrationStore } from '@/store/registration.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -11,6 +11,8 @@ import { useAuthStore } from '@/store/auth.store';
 export default function LegalReviewPage() {
   const locale = useLocale();
   const router = useRouter();
+  const t = useTranslations('registerLegalReview');
+  const tReg = useTranslations('register');
   const { legalDraft, documentUploads, userId } = useRegistrationStore();
   const { accessToken } = useAuthStore();
   const [submitting, setSubmitting] = useState(false);
@@ -26,7 +28,7 @@ export default function LegalReviewPage() {
       router.push(`/${locale}/register/success?type=legal`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      setError(axiosErr.response?.data?.message ?? 'Submission failed. Please try again.');
+      setError(axiosErr.response?.data?.message ?? t('submissionFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -35,12 +37,12 @@ export default function LegalReviewPage() {
   if (!legalDraft) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500 text-sm">No registration data found.</p>
+        <p className="text-gray-500 text-sm">{t('noDataFound')}</p>
         <button
           onClick={() => router.push(`/${locale}/register/legal`)}
           className="mt-3 text-pob-blue hover:underline text-sm"
         >
-          Start registration
+          {t('startRegistration')}
         </button>
       </div>
     );
@@ -55,12 +57,12 @@ export default function LegalReviewPage() {
             <div key={step} className="w-8 h-1.5 rounded-full bg-pob-blue" />
           ))}
         </div>
-        <span className="text-xs text-gray-400 ml-1">Step 5 of 5</span>
+        <span className="text-xs text-gray-400 ml-1">{t('step5of5')}</span>
       </div>
 
-      <h2 className="text-xl font-bold text-gray-800 mb-1">Review & Submit</h2>
+      <h2 className="text-xl font-bold text-gray-800 mb-1">{t('title')}</h2>
       <p className="text-gray-500 text-sm mb-5">
-        Review your registration details before submitting for Finance review.
+        {t('subtitle')}
       </p>
 
       {error && (
@@ -73,27 +75,27 @@ export default function LegalReviewPage() {
       <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 mb-5">
         <div className="p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
-            Company Information
+            {t('companyInfo')}
           </p>
           <div className="space-y-2">
-            <ReviewRow label="Company Name" value={legalDraft.companyName} />
-            <ReviewRow label="Tax ID (VÖEN)" value={legalDraft.taxRegistrationId} />
-            <ReviewRow label="Contact Person" value={legalDraft.contactPersonName} />
+            <ReviewRow label={t('companyName')} value={legalDraft.companyName} />
+            <ReviewRow label={t('taxId')} value={legalDraft.taxRegistrationId} />
+            <ReviewRow label={t('contactPerson')} value={legalDraft.contactPersonName} />
             {legalDraft.contactPersonPhone && (
-              <ReviewRow label="Contact Phone" value={legalDraft.contactPersonPhone} />
+              <ReviewRow label={t('contactPhone')} value={legalDraft.contactPersonPhone} />
             )}
           </div>
         </div>
 
         <div className="p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
-            Login & Notifications
+            {t('loginNotifications')}
           </p>
           <div className="space-y-2">
-            {legalDraft.email && <ReviewRow label="Email" value={legalDraft.email} />}
-            {legalDraft.phone && <ReviewRow label="Phone" value={legalDraft.phone} />}
+            {legalDraft.email && <ReviewRow label={t('email')} value={legalDraft.email} />}
+            {legalDraft.phone && <ReviewRow label={t('phone')} value={legalDraft.phone} />}
             <ReviewRow
-              label="Language"
+              label={t('language')}
               value={{ AZ: 'Azərbaycan', EN: 'English', RU: 'Русский', TR: 'Türkçe' }[legalDraft.preferredLanguage] ?? legalDraft.preferredLanguage}
             />
           </div>
@@ -101,12 +103,12 @@ export default function LegalReviewPage() {
 
         <div className="p-4">
           <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-2">
-            Documents Uploaded
+            {t('documentsUploaded')}
           </p>
           <div className="flex items-center gap-2">
             <span className="text-green-500 text-lg">📁</span>
             <p className="text-sm text-gray-700">
-              {documentUploads.length} document{documentUploads.length !== 1 ? 's' : ''} uploaded
+              {t('documentCount', { count: documentUploads.length, plural: documentUploads.length !== 1 ? 's' : '' })}
             </p>
           </div>
         </div>
@@ -121,10 +123,7 @@ export default function LegalReviewPage() {
           className="mt-0.5 w-4 h-4 rounded text-pob-blue"
         />
         <p className="text-xs text-gray-700 leading-relaxed">
-          I confirm that all information provided is accurate and complete. I understand that
-          providing false information may result in account suspension. I agree to the{' '}
-          <span className="text-pob-blue">Terms of Service</span> and{' '}
-          <span className="text-pob-blue">Privacy Policy</span> of the Port of Baku E-Queue Platform.
+          {t('declarationText')}
         </p>
       </label>
 
@@ -140,7 +139,7 @@ export default function LegalReviewPage() {
           disabled={!agreed || submitting}
           className="py-2.5 bg-pob-blue text-white font-medium rounded-lg hover:bg-pob-blue-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {submitting ? 'Submitting...' : 'Submit for Review'}
+          {submitting ? t('submitting') : t('submitBtn')}
         </button>
       </div>
     </>

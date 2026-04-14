@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 
 interface UserRow {
@@ -37,6 +38,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function UsersPage() {
+  const t = useTranslations('users');
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -55,7 +57,7 @@ export default function UsersPage() {
       const { data } = await apiClient.get<{ data: UserRow[] }>('/admin/users', { params });
       setUsers(data.data);
     } catch {
-      setError('Failed to load users');
+      setError(t('failedToLoad'));
     } finally {
       setLoading(false);
     }
@@ -69,20 +71,20 @@ export default function UsersPage() {
       await apiClient.patch(`/admin/users/${userId}/status`, { accountStatus: newStatus });
       setUsers((prev) => prev.map((u) => u.id === userId ? { ...u, accountStatus: newStatus } : u));
     } catch {
-      alert('Failed to update status');
+      alert(t('failedToUpdate'));
     } finally {
       setUpdating(null);
     }
   };
 
   const deleteUser = async (userId: string, email: string) => {
-    if (!confirm(`Soft-delete user ${email}? (Data retained 7 years per BRD)`)) return;
+    if (!confirm(t('confirmDelete', { email }))) return;
     setUpdating(userId);
     try {
       await apiClient.delete(`/admin/users/${userId}`);
       setUsers((prev) => prev.filter((u) => u.id !== userId));
     } catch {
-      alert('Failed to delete user');
+      alert(t('failedToDelete'));
     } finally {
       setUpdating(null);
     }
@@ -109,14 +111,14 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="text-gray-500 mt-1">{users.length} total users</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-gray-500 mt-1">{t('totalUsers', { count: users.length })}</p>
         </div>
         <button
           onClick={fetchUsers}
           className="text-sm bg-white border border-gray-300 hover:border-gray-400 px-4 py-2 rounded-lg transition-colors"
         >
-          ↻ Refresh
+          {t('refresh')}
         </button>
       </div>
 
@@ -124,7 +126,7 @@ export default function UsersPage() {
       <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap gap-3">
         <input
           type="text"
-          placeholder="Search email, name, phone…"
+          placeholder={t('searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
@@ -134,7 +136,7 @@ export default function UsersPage() {
           onChange={(e) => setRoleFilter(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">All Roles</option>
+          <option value="">{t('allRoles')}</option>
           <option value="CUSTOMER_INDIVIDUAL">Customer (Individual)</option>
           <option value="CUSTOMER_LEGAL">Customer (Legal)</option>
           <option value="FINANCE_OFFICER">Finance Officer</option>
@@ -151,7 +153,7 @@ export default function UsersPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">All Statuses</option>
+          <option value="">{t('allStatuses')}</option>
           <option value="ACTIVE">Active</option>
           <option value="SUSPENDED">Suspended</option>
           <option value="PENDING_VERIFICATION">Pending Verification</option>
@@ -168,7 +170,7 @@ export default function UsersPage() {
       {loading ? (
         <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-gray-400">
           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          Loading users…
+          {t('loadingUsers')}
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -176,18 +178,18 @@ export default function UsersPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Name / Company</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Last Login</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Actions</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colNameCompany')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colEmail')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colRole')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colStatus')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colLastLogin')}</th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colActions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-gray-400">No users found</td>
+                    <td colSpan={6} className="text-center py-10 text-gray-400">{t('noUsersFound')}</td>
                   </tr>
                 )}
                 {filtered.map((u) => (
@@ -208,7 +210,7 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">
-                      {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : 'Never'}
+                      {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : t('never')}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -218,7 +220,7 @@ export default function UsersPage() {
                             disabled={!!updating}
                             className="text-xs text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
                           >
-                            Suspend
+                            {t('suspend')}
                           </button>
                         ) : u.accountStatus === 'SUSPENDED' ? (
                           <button
@@ -226,7 +228,7 @@ export default function UsersPage() {
                             disabled={!!updating}
                             className="text-xs text-green-600 hover:text-green-800 font-medium disabled:opacity-50"
                           >
-                            Activate
+                            {t('activate')}
                           </button>
                         ) : null}
                         <button
@@ -234,7 +236,7 @@ export default function UsersPage() {
                           disabled={!!updating}
                           className="text-xs text-gray-400 hover:text-red-600 font-medium disabled:opacity-50"
                         >
-                          Delete
+                          {t('delete')}
                         </button>
                       </div>
                     </td>

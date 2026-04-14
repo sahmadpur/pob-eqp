@@ -4,13 +4,22 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { useAuthStore } from '@/store/auth.store';
 import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { apiClient } from '@/lib/api-client';
+import { LocaleSwitcher } from '@/components/layout/locale-switcher';
 
 export function CustomerNav() {
   const locale = useLocale();
   const t = useTranslations('nav');
   const { user, clearAuth, refreshToken } = useAuthStore();
   const router = useRouter();
+
+  // Block PENDING_REVIEW legal users from accessing customer pages
+  useEffect(() => {
+    if (user?.accountStatus === 'PENDING_REVIEW' || user?.accountStatus === 'PENDING_EMAIL') {
+      router.replace(`/${locale}/register/legal/pending`);
+    }
+  }, [user?.accountStatus, locale, router]);
 
   const handleLogout = async () => {
     try {
@@ -38,10 +47,14 @@ export function CustomerNav() {
             <Link href={`/${locale}/customer/orders/new`} className="hover:text-blue-300 transition-colors">
               {t('newOrder')}
             </Link>
+            <Link href={`/${locale}/customer/profile`} className="hover:text-blue-300 transition-colors">
+              {t('profile')}
+            </Link>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <span className="text-sm text-blue-200">{user?.email ?? user?.phone}</span>
+          <LocaleSwitcher variant="dark" />
           <button
             onClick={handleLogout}
             className="text-sm bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors"

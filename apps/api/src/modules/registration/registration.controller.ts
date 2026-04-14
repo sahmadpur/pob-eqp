@@ -94,6 +94,14 @@ export class RegistrationController {
   ) {
     if (!file) throw new BadRequestException('No file provided');
 
+    // Auto-resolve legalProfileId from the authenticated user's legal profile
+    // so documents are always linked even when the client omits it.
+    let legalProfileId = body.legalProfileId;
+    if (!legalProfileId && !body.orderId) {
+      const resolved = await this.registrationService.findLegalProfileIdByUserId(req.user.id);
+      if (resolved) legalProfileId = resolved;
+    }
+
     const document = await this.documentService.saveUploadedFile({
       uploadedById: req.user.id,
       documentType: body.documentType as DocumentType,
@@ -101,7 +109,7 @@ export class RegistrationController {
       fileSize: file.size,
       originalFileName: file.originalname,
       fileBuffer: file.buffer,
-      legalProfileId: body.legalProfileId,
+      legalProfileId,
       orderId: body.orderId,
     });
 
@@ -115,6 +123,18 @@ export class RegistrationController {
   @ApiOperation({ summary: 'Get all documents for current user' })
   async getMyDocuments(@Request() req: { user: { id: string; role: string; accountStatus: string } }) {
     return this.documentService.getDocumentsByUser(req.user.id);
+  }
+
+  // ── Admin endpoints ────────────────────────────────────────────────────
+
+  /** Admin: Get all legal entity registrations (all statuses) */
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMINISTRATOR)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get all legal entity registrations (admin oversight)' })
+  async getAllRegistrations() {
+    return this.registrationService.getAllLegalRegistrations();
   }
 
   // ── Finance Officer endpoints ──────────────────────────────────────────

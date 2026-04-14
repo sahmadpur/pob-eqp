@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
-import { RegistrationStatus } from '@pob-eqp/shared';
 
-interface PendingRegistration {
+interface LegalRegistration {
   id: string;
   email: string | null;
   phone: string | null;
+  accountStatus: string;
   createdAt: string;
   legalProfile: {
     id: string;
@@ -17,27 +17,32 @@ interface PendingRegistration {
     taxRegistrationId: string;
     contactPersonName: string;
     registrationStatus: string;
-    submittedAt: string;
-    documents: Array<{ id: string; type: string; originalFileName: string; s3Key: string }>;
+    submittedAt: string | null;
+    updatedAt: string;
     registrationReviews: Array<{ action: string; createdAt: string }>;
   } | null;
 }
 
-// P1-F01: Finance Officer — list of pending legal entity registrations
-export default function FinancePendingRegistrationsPage() {
+const STATUS_STYLES: Record<string, string> = {
+  DRAFT: 'bg-gray-100 text-gray-600',
+  SUBMITTED: 'bg-amber-100 text-amber-700',
+  APPROVED: 'bg-green-100 text-green-700',
+  DECLINED: 'bg-red-100 text-red-700',
+};
+
+export default function AdminRegistrationsPage() {
   const locale = useLocale();
-  const t = useTranslations('financeRegistrations');
-  const [registrations, setRegistrations] = useState<PendingRegistration[]>([]);
+  const t = useTranslations('adminRegistrations');
+  const [registrations, setRegistrations] = useState<LegalRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   useEffect(() => {
-    const fetchPending = async () => {
+    const fetchAll = async () => {
       try {
-        const res = await apiClient.get<{ data: PendingRegistration[] }>(
-          '/registration/finance/pending',
-        );
+        const res = await apiClient.get<{ data: LegalRegistration[] }>('/registration/admin/all');
         setRegistrations(res.data.data);
       } catch {
         setError(t('failedToLoad'));
@@ -45,23 +50,29 @@ export default function FinancePendingRegistrationsPage() {
         setLoading(false);
       }
     };
-    void fetchPending();
+    void fetchAll();
   }, []);
 
   const filtered = registrations.filter((r) => {
     const q = search.toLowerCase();
-    return (
+    const matchesSearch =
       r.legalProfile?.companyName.toLowerCase().includes(q) ||
       r.legalProfile?.taxRegistrationId.toLowerCase().includes(q) ||
       r.email?.toLowerCase().includes(q) ||
-      r.phone?.includes(q)
-    );
+      r.phone?.includes(q);
+    const matchesStatus =
+      statusFilter === 'ALL' || r.legalProfile?.registrationStatus === statusFilter;
+    return matchesSearch && matchesStatus;
   });
 
-  const getWaitingDays = (submittedAt: string) => {
-    const diff = Date.now() - new Date(submittedAt).getTime();
-    return Math.floor(diff / (1000 * 60 * 60 * 24));
-  };
+  const counts = registrations.reduce<Record<string, number>>(
+    (acc, r) => {
+      const s = r.legalProfile?.registrationStatus ?? 'UNKNOWN';
+      acc[s] = (acc[s] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
 
   if (loading) {
     return (
@@ -72,20 +83,16 @@ export default function FinancePendingRegistrationsPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('title')}</h1>
-          <p className="text-gray-500 text-sm mt-0.5">
-            {t('subtitle')}
-          </p>
+          <p className="text-gray-500 text-sm mt-0.5">{t('subtitle')}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="bg-amber-100 text-amber-700 text-sm font-semibold px-3 py-1 rounded-full">
-            {t('pendingCount', { count: registrations.length })}
-          </span>
-        </div>
+        <span className="bg-gray-100 text-gray-700 text-sm font-semibold px-3 py-1 rounded-full">
+          {t('totalCount', { count: registrations.length })}
+        </span>
       </div>
 
       {error && (
@@ -94,10 +101,33 @@ export default function FinancePendingRegistrationsPage() {
         </div>
       )}
 
+      {/* Status pills */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {['ALL', 'DRAFT', 'SUBMITTED', 'APPROVED', 'DECLINED'].map((s) => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-colors ${
+              statusFilter === s
+                ? 'bg-gray-900 text-white border-gray-900'
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            {s === 'ALL' ? t('all') : t(`status${s}`)}
+            {s !== 'ALL' && counts[s] != null && (
+              <span className="ml-1.5 opacity-70">{counts[s]}</span>
+            )}
+            {s === 'ALL' && (
+              <span className="ml-1.5 opacity-70">{registrations.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* Search */}
       <div className="mb-4">
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
           <input
             type="text"
             value={search}
@@ -111,16 +141,15 @@ export default function FinancePendingRegistrationsPage() {
       {/* Table */}
       {filtered.length === 0 ? (
         <div className="text-center py-16 bg-gray-50 rounded-xl border border-gray-200">
-          <span className="text-4xl block mb-3">📭</span>
           <p className="text-gray-500 font-medium">
-            {search ? t('noResults') : t('noPending')}
+            {search || statusFilter !== 'ALL' ? t('noResults') : t('noRegistrations')}
           </p>
-          {search && (
+          {(search || statusFilter !== 'ALL') && (
             <button
-              onClick={() => setSearch('')}
+              onClick={() => { setSearch(''); setStatusFilter('ALL'); }}
               className="mt-2 text-sm text-pob-blue hover:underline"
             >
-              {t('clearSearch')}
+              {t('clearFilters')}
             </button>
           )}
         </div>
@@ -139,13 +168,10 @@ export default function FinancePendingRegistrationsPage() {
                   {t('colContact')}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colDocs')}
+                  {t('colStatus')}
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colWaiting')}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colCycle')}
+                  {t('colRegistered')}
                 </th>
                 <th className="px-4 py-3" />
               </tr>
@@ -153,60 +179,42 @@ export default function FinancePendingRegistrationsPage() {
             <tbody className="divide-y divide-gray-100">
               {filtered.map((reg) => {
                 const lp = reg.legalProfile;
-                if (!lp) return null;
-                const waitDays = getWaitingDays(lp.submittedAt);
-                const reviewCycle = (lp.registrationReviews?.length ?? 0) + 1;
-                const isUrgent = waitDays >= 2;
-
+                const status = lp?.registrationStatus ?? 'UNKNOWN';
                 return (
                   <tr key={reg.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {isUrgent && (
-                          <span title="Waiting 2+ days" className="text-amber-500 text-xs">⚠</span>
-                        )}
-                        <span className="font-medium text-gray-800 truncate max-w-[160px]">
-                          {lp.companyName}
-                        </span>
-                      </div>
+                      <span className="font-medium text-gray-800 truncate max-w-[180px] block">
+                        {lp?.companyName ?? '—'}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600 font-mono text-xs">
-                      {lp.taxRegistrationId}
+                      {lp?.taxRegistrationId ?? '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-gray-700 text-xs">{lp.contactPersonName}</p>
+                      <p className="text-gray-700 text-xs">{lp?.contactPersonName ?? '—'}</p>
                       <p className="text-gray-400 text-xs">{reg.email ?? reg.phone}</p>
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          lp.documents.length >= 2
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}
+                        className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_STYLES[status] ?? 'bg-gray-100 text-gray-500'}`}
                       >
-                        {lp.documents.length} file{lp.documents.length !== 1 ? 's' : ''}
+                        {t(`status${status}` as Parameters<typeof t>[0], undefined, { fallback: status })}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`text-xs font-semibold ${
-                          isUrgent ? 'text-amber-600' : 'text-gray-500'
-                        }`}
-                      >
-                        {waitDays === 0 ? t('today') : `${waitDays}d`}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-gray-500">#{reviewCycle}</span>
+                    <td className="px-4 py-3 text-xs text-gray-500">
+                      {new Date(reg.createdAt).toLocaleDateString('en-GB', {
+                        day: '2-digit', month: 'short', year: 'numeric',
+                      })}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/${locale}/registrations/${reg.id}`}
-                        className="inline-flex items-center gap-1 text-xs font-medium text-pob-blue hover:underline"
-                      >
-                        {t('reviewLink')}
-                      </Link>
+                      {lp && (
+                        <Link
+                          href={`/${locale}/admin/registrations/${reg.id}`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-pob-blue hover:underline"
+                        >
+                          {t('viewLink')}
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 );
@@ -216,7 +224,6 @@ export default function FinancePendingRegistrationsPage() {
         </div>
       )}
 
-      {/* Summary footer */}
       {filtered.length > 0 && (
         <p className="text-xs text-gray-400 mt-3 text-right">
           {t('showingCount', { filtered: filtered.length, total: registrations.length })}

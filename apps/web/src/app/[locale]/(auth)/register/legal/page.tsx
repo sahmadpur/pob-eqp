@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -50,6 +50,8 @@ type FormData = z.infer<typeof schema>;
 export default function LegalRegisterPage() {
   const locale = useLocale();
   const router = useRouter();
+  const t = useTranslations('registerLegal');
+  const tReg = useTranslations('register');
   const { setUserId, setIdentifier, setLegalDraft } = useRegistrationStore();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -87,7 +89,7 @@ export default function LegalRegisterPage() {
       router.push(`/${locale}/verify?identifier=${identifierParam}&type=legal`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      setError(axiosErr.response?.data?.message ?? 'Registration failed. Please try again.');
+      setError(axiosErr.response?.data?.message ?? t('registrationFailed'));
     } finally {
       setLoading(false);
     }
@@ -105,14 +107,14 @@ export default function LegalRegisterPage() {
             />
           ))}
         </div>
-        <span className="text-xs text-gray-400 ml-1">Step 2 of 5</span>
+        <span className="text-xs text-gray-400 ml-1">{tReg('step2of5')}</span>
       </div>
 
       <div className="flex items-center gap-2 mb-1">
         <Link href={`/${locale}/register`} className="text-gray-400 hover:text-gray-600">←</Link>
-        <h2 className="text-xl font-bold text-gray-800">Company Details</h2>
+        <h2 className="text-xl font-bold text-gray-800">{t('title')}</h2>
       </div>
-      <p className="text-gray-500 text-sm mb-5">Legal entity · Fields marked * are required</p>
+      <p className="text-gray-500 text-sm mb-5">{t('subtitle')}</p>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
@@ -122,7 +124,7 @@ export default function LegalRegisterPage() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Company Name *</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">{t('companyName')} *</label>
           <input
             {...register('companyName')}
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue"
@@ -133,7 +135,7 @@ export default function LegalRegisterPage() {
 
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1">
-            Tax Registration ID (VÖEN) *
+            {t('taxId')} *
           </label>
           <input
             {...register('taxRegistrationId')}
@@ -148,7 +150,7 @@ export default function LegalRegisterPage() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              Contact Person Name *
+              {t('contactPersonName')} *
             </label>
             <input
               {...register('contactPersonName')}
@@ -161,7 +163,7 @@ export default function LegalRegisterPage() {
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              Contact Phone
+              {t('contactPhone')}
             </label>
             <input
               {...register('contactPersonPhone')}
@@ -177,12 +179,12 @@ export default function LegalRegisterPage() {
 
         <div className="border-t border-gray-100 pt-4">
           <p className="text-xs font-semibold text-gray-600 mb-3 uppercase tracking-wider">
-            Login Credentials
+            {t('loginCredentials')}
           </p>
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Company Email <span className="text-gray-400">(or phone below)</span>
+                {t('companyEmail')} <span className="text-gray-400">({t('companyEmailHint')})</span>
               </label>
               <input
                 {...register('email')}
@@ -194,7 +196,7 @@ export default function LegalRegisterPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Company Phone
+                {t('companyPhone')}
               </label>
               <input
                 {...register('phone')}
@@ -205,23 +207,25 @@ export default function LegalRegisterPage() {
               {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Password *</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">{t('password')} *</label>
               <input
                 {...register('password')}
                 type="password"
                 autoComplete="new-password"
+                suppressHydrationWarning
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue"
               />
               {errors.password && <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Confirm Password *
+                {t('confirmPassword')} *
               </label>
               <input
                 {...register('confirmPassword')}
                 type="password"
                 autoComplete="new-password"
+                suppressHydrationWarning
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue"
               />
               {errors.confirmPassword && (
@@ -232,7 +236,7 @@ export default function LegalRegisterPage() {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Preferred Language</label>
+          <label className="block text-xs font-medium text-gray-700 mb-1">{t('preferredLanguage')}</label>
           <select
             {...register('preferredLanguage')}
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pob-blue"
@@ -249,7 +253,7 @@ export default function LegalRegisterPage() {
           disabled={loading}
           className="w-full py-2.5 bg-pob-blue text-white font-medium rounded-lg hover:bg-pob-blue-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {loading ? 'Creating account...' : 'Continue →'}
+          {loading ? t('creatingAccount') : t('continueBtn')}
         </button>
       </form>
     </>

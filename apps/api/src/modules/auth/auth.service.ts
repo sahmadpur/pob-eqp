@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
-import { AUTH_CONSTANTS } from '@pob-eqp/shared';
+import { AUTH_CONSTANTS, UserRole, AccountStatus } from '@pob-eqp/shared';
 import type { User } from '@prisma/client';
 
 @Injectable()
@@ -48,6 +48,17 @@ export class AuthService {
     if (!isValid) {
       await this.incrementFailedAttempts(user.id);
       return null;
+    }
+
+    // Block login based on account status BEFORE issuing tokens
+    if (user.accountStatus === AccountStatus.PENDING_EMAIL) {
+      throw new ForbiddenException('Please verify your email address before logging in.');
+    }
+    if (user.accountStatus === AccountStatus.PENDING_REVIEW) {
+      throw new ForbiddenException('Your account is pending Finance Officer review. You will be notified once approved.');
+    }
+    if (user.accountStatus === AccountStatus.DEACTIVATED) {
+      throw new ForbiddenException('Your account has been deactivated. Please contact support.');
     }
 
     // Reset failed attempts on success
@@ -192,7 +203,8 @@ export class AuthService {
     });
 
     // For email_verification, activate the account and return the user so the
-    // controller can issue JWT tokens immediately (no second login step needed)
+    // controller can issue JWT tokens immediately (no second login step needed).
+    // Legal entities go to PENDING_REVIEW — they must await Finance approval before login.
     if (purpose === 'email_verification') {
       const user = await this.prisma.user.findFirst({
         where: {
@@ -201,11 +213,16 @@ export class AuthService {
         },
       });
       if (user) {
+        // Legal customers require Finance review before being fully active
+        const newStatus =
+          user.role === UserRole.CUSTOMER_LEGAL
+            ? AccountStatus.PENDING_REVIEW
+            : AccountStatus.ACTIVE;
         await this.prisma.user.update({
           where: { id: user.id },
-          data: { accountStatus: 'ACTIVE' },
+          data: { accountStatus: newStatus },
         });
-        return { valid: true, user: { ...user, accountStatus: 'ACTIVE' } as User };
+        return { valid: true, user: { ...user, accountStatus: newStatus } as User };
       }
     }
 

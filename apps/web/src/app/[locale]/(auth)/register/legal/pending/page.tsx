@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { RegistrationStatus } from '@pob-eqp/shared';
@@ -11,13 +11,14 @@ interface Profile {
   registrationStatus: RegistrationStatus;
   companyName: string;
   updatedAt: string;
-  reviews: Array<{ action: string; reason: string | null; createdAt: string }>;
+  registrationReviews: Array<{ action: string; declineReason: string | null; createdAt: string }>;
 }
 
 // P1-10: Legal entity — pending Finance review status tracker
 export default function LegalPendingPage() {
   const locale = useLocale();
   const router = useRouter();
+  const t = useTranslations('pending');
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,12 +32,12 @@ export default function LegalPendingPage() {
         const lp = res.data.data.legalProfile;
         setProfile(lp);
 
-        // Redirect if status changed
+        // Redirect if status changed — legal customers go to customer dashboard
         if (lp.registrationStatus === RegistrationStatus.APPROVED) {
-          router.push(`/${locale}/dashboard`);
+          router.push(`/${locale}/customer/dashboard`);
         }
       } catch {
-        setError('Failed to load registration status.');
+        setError(t('loadingStatus'));
       } finally {
         setLoading(false);
       }
@@ -55,31 +56,24 @@ export default function LegalPendingPage() {
   > = {
     [RegistrationStatus.SUBMITTED]: {
       icon: '⏳',
-      label: 'Under Review',
+      label: t('statusUnderReview'),
       color: 'text-amber-700',
       bg: 'bg-amber-50',
       border: 'border-amber-200',
     },
     [RegistrationStatus.APPROVED]: {
       icon: '✅',
-      label: 'Approved',
+      label: t('statusApproved'),
       color: 'text-green-700',
       bg: 'bg-green-50',
       border: 'border-green-200',
     },
     [RegistrationStatus.DECLINED]: {
       icon: '❌',
-      label: 'Rejected',
+      label: t('statusRejected'),
       color: 'text-red-700',
       bg: 'bg-red-50',
       border: 'border-red-200',
-    },
-    [RegistrationStatus.SUBMITTED]: {
-      icon: '📝',
-      label: 'Draft',
-      color: 'text-gray-700',
-      bg: 'bg-gray-50',
-      border: 'border-gray-200',
     },
   };
 
@@ -87,7 +81,7 @@ export default function LegalPendingPage() {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3">
         <div className="w-10 h-10 border-4 border-pob-blue border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-500 text-sm">Loading registration status...</p>
+        <p className="text-gray-500 text-sm">{t('loadingStatus')}</p>
       </div>
     );
   }
@@ -95,9 +89,9 @@ export default function LegalPendingPage() {
   if (error || !profile) {
     return (
       <div className="text-center py-10">
-        <p className="text-red-600 text-sm mb-3">{error ?? 'No profile found.'}</p>
+        <p className="text-red-600 text-sm mb-3">{error ?? t('noProfileFound')}</p>
         <Link href={`/${locale}/login`} className="text-pob-blue hover:underline text-sm">
-          Sign in
+          {t('signIn')}
         </Link>
       </div>
     );
@@ -105,32 +99,32 @@ export default function LegalPendingPage() {
 
   const status = profile.registrationStatus;
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG[RegistrationStatus.SUBMITTED];
-  const lastReview = profile.reviews?.[0];
+  const lastReview = profile.registrationReviews?.[0];
 
   const timelineSteps = [
     {
-      label: 'Registration Submitted',
+      label: t('timelineSubmitted'),
       done: true,
       icon: '📋',
     },
     {
-      label: 'OTP Verification',
+      label: t('timelineOtp'),
       done: true,
       icon: '✉️',
     },
     {
-      label: 'Documents Uploaded',
+      label: t('timelineDocs'),
       done: true,
       icon: '📁',
     },
     {
-      label: 'Finance Review',
+      label: t('timelineFinance'),
       done: [RegistrationStatus.APPROVED, RegistrationStatus.DECLINED].includes(status as RegistrationStatus),
       active: status === RegistrationStatus.SUBMITTED,
       icon: status === RegistrationStatus.APPROVED ? '✅' : status === RegistrationStatus.DECLINED ? '❌' : '⏳',
     },
     {
-      label: 'Account Activated',
+      label: t('timelineActivated'),
       done: status === RegistrationStatus.APPROVED,
       icon: '🎉',
     },
@@ -155,7 +149,7 @@ export default function LegalPendingPage() {
       {/* Timeline */}
       <div className="mb-6">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-          Application Progress
+          {t('applicationProgress')}
         </p>
         <div className="space-y-0">
           {timelineSteps.map((step, i) => (
@@ -193,18 +187,18 @@ export default function LegalPendingPage() {
       {/* Rejection details */}
       {status === RegistrationStatus.DECLINED && lastReview && (
         <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl">
-          <p className="text-sm font-semibold text-red-800 mb-1">Review Decision</p>
-          {lastReview.reason && (
-            <p className="text-sm text-red-700 mb-2">{lastReview.reason}</p>
+          <p className="text-sm font-semibold text-red-800 mb-1">{t('reviewDecision')}</p>
+          {lastReview.declineReason && (
+            <p className="text-sm text-red-700 mb-2">{lastReview.declineReason}</p>
           )}
           <p className="text-xs text-red-500">
-            Reviewed on {new Date(lastReview.createdAt).toLocaleDateString()}
+            {t('reviewedOn')} {new Date(lastReview.createdAt).toLocaleDateString()}
           </p>
           <Link
             href={`/${locale}/register/legal/documents`}
             className="mt-3 inline-block text-sm text-pob-blue hover:underline font-medium"
           >
-            Resubmit with corrections →
+            {t('resubmitLink')}
           </Link>
         </div>
       )}
@@ -213,9 +207,7 @@ export default function LegalPendingPage() {
       {status === RegistrationStatus.SUBMITTED && (
         <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-xl">
           <p className="text-xs text-amber-700 leading-relaxed">
-            <strong>Estimated time:</strong> 1–2 business days. You will receive an email/SMS
-            notification once the Finance Officer completes the review. This page auto-refreshes
-            every 30 seconds.
+            <strong>{t('estimatedTime')}:</strong> {t('pendingMessage')}
           </p>
         </div>
       )}
@@ -223,17 +215,17 @@ export default function LegalPendingPage() {
       <div className="space-y-2">
         {status === RegistrationStatus.APPROVED && (
           <Link
-            href={`/${locale}/dashboard`}
+            href={`/${locale}/customer/dashboard`}
             className="block w-full py-2.5 bg-pob-blue text-white font-medium rounded-lg hover:bg-pob-blue-light transition-colors text-center"
           >
-            Go to Dashboard →
+            {t('goToDashboard')}
           </Link>
         )}
         <Link
           href={`/${locale}/login`}
           className="block w-full py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-center text-sm"
         >
-          Sign In
+          {t('signIn')}
         </Link>
       </div>
     </>

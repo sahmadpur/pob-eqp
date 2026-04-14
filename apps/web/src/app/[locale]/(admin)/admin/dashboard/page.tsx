@@ -1,25 +1,26 @@
 'use client';
 
 import { useAuthStore } from '@/store/auth.store';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 export default function AdminDashboardPage() {
   const { user } = useAuthStore();
   const locale = useLocale();
+  const t = useTranslations('admin');
 
   const tiles = [
-    { href: `/${locale}/registrations`, emoji: '📋', label: 'Registrations', desc: 'Review legal entity applications' },
-    { href: `/${locale}/admin/users`, emoji: '👥', label: 'Users', desc: 'Manage platform users' },
-    { href: `/${locale}/admin/planning`, emoji: '📅', label: 'Planning', desc: 'Manage queue plans' },
-    { href: `/${locale}/admin/system`, emoji: '⚙️', label: 'System Config', desc: 'Platform settings' },
+    { href: `/${locale}/admin/registrations`, emoji: '📋', label: t('registrations'), desc: t('registrationsDesc') },
+    { href: `/${locale}/admin/users`, emoji: '👥', label: t('users'), desc: t('usersDesc') },
+    { href: `/${locale}/admin/planning`, emoji: '📅', label: t('planning'), desc: t('planningDesc') },
+    { href: `/${locale}/admin/system`, emoji: '⚙️', label: t('systemConfig'), desc: t('systemConfigDesc') },
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-500 mt-1">{user?.email} · Administrator</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('dashboardTitle')}</h1>
+        <p className="text-gray-500 mt-1">{user?.email} · {t('administrator')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

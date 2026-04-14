@@ -1,7 +1,8 @@
 import {
   Injectable, ConflictException, NotFoundException,
-  BadRequestException, ForbiddenException, Logger,
+  BadRequestException, ForbiddenException, Logger, InternalServerErrorException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { UserRole, AccountStatus } from '@pob-eqp/shared';
 import * as bcrypt from 'bcrypt';
@@ -49,28 +50,42 @@ export class RegistrationService {
       if (existing) throw new ConflictException('User with this email already exists');
     }
 
+    if (dto.phone) {
+      const phoneExists = await this.prisma.user.findFirst({ where: { phone: dto.phone, deletedAt: null } });
+      if (phoneExists) throw new ConflictException('Phone number is already registered');
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, AUTH_CONSTANTS.BCRYPT_COST);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: resolvedEmail,
-        phone: dto.phone ?? `+99400${Date.now().toString().slice(-7)}`, // fallback if no phone
-        passwordHash,
-        role: UserRole.CUSTOMER_INDIVIDUAL,
-        accountStatus: AccountStatus.PENDING_EMAIL, // schema value (not PENDING_VERIFICATION)
-        locale: dto.preferredLanguage?.toLowerCase() ?? 'en',
-        individualProfile: {
-          create: {
-            firstName: dto.firstName,
-            lastName: dto.lastName,
-            fathersName: dto.fathersName,
-            dateOfBirth: new Date(dto.dateOfBirth),
-            nationalIdOrPassport: dto.nationalIdOrPassport.toUpperCase(),
+    let user;
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          email: resolvedEmail,
+          phone: dto.phone ?? `+99400${Date.now().toString().slice(-7)}`,
+          passwordHash,
+          role: UserRole.CUSTOMER_INDIVIDUAL,
+          accountStatus: AccountStatus.PENDING_EMAIL,
+          locale: dto.preferredLanguage?.toLowerCase() ?? 'en',
+          individualProfile: {
+            create: {
+              firstName: dto.firstName,
+              lastName: dto.lastName,
+              fathersName: dto.fathersName,
+              dateOfBirth: new Date(dto.dateOfBirth),
+              nationalIdOrPassport: dto.nationalIdOrPassport.toUpperCase(),
+            },
           },
         },
-      },
-      include: { individualProfile: true },
-    });
+        include: { individualProfile: true },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const field = (err.meta?.target as string[])?.join(', ') ?? 'field';
+        throw new ConflictException(`A user with this ${field} already exists`);
+      }
+      throw new InternalServerErrorException('Registration failed. Please try again.');
+    }
 
     // Generate OTP for email/phone verification
     const otpIdentifier = dto.email ?? dto.phone ?? resolvedEmail;
@@ -99,6 +114,12 @@ export class RegistrationService {
       if (existing) throw new ConflictException('User with this email already exists');
     }
 
+    // Check phone uniqueness upfront to avoid Prisma P2002 → 500
+    if (dto.phone) {
+      const phoneExists = await this.prisma.user.findFirst({ where: { phone: dto.phone, deletedAt: null } });
+      if (phoneExists) throw new ConflictException('Phone number is already registered');
+    }
+
     const taxExists = await this.prisma.legalEntityProfile.findUnique({
       where: { taxRegistrationId: dto.taxRegistrationId },
     });
@@ -106,26 +127,36 @@ export class RegistrationService {
 
     const passwordHash = await bcrypt.hash(dto.password, AUTH_CONSTANTS.BCRYPT_COST);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: resolvedEmail,
-        phone: dto.phone ?? `+99400${Date.now().toString().slice(-7)}`,
-        passwordHash,
-        role: UserRole.CUSTOMER_LEGAL,
-        accountStatus: AccountStatus.PENDING_EMAIL,
-        locale: dto.preferredLanguage?.toLowerCase() ?? 'en',
-        legalProfile: {
-          create: {
-            companyName: dto.companyName,
-            taxRegistrationId: dto.taxRegistrationId,
-            contactPersonName: dto.contactPersonName,
-            contactPersonPosition: 'Contact Person',
-            legalAddress: 'Pending',
+    let user;
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          email: resolvedEmail,
+          phone: dto.phone ?? `+99400${Date.now().toString().slice(-7)}`,
+          passwordHash,
+          role: UserRole.CUSTOMER_LEGAL,
+          accountStatus: AccountStatus.PENDING_EMAIL,
+          locale: dto.preferredLanguage?.toLowerCase() ?? 'en',
+          legalProfile: {
+            create: {
+              companyName: dto.companyName,
+              taxRegistrationId: dto.taxRegistrationId,
+              contactPersonName: dto.contactPersonName,
+              contactPersonPhone: dto.contactPersonPhone ?? null,
+              contactPersonPosition: 'Contact Person',
+              legalAddress: 'Pending',
+            },
           },
         },
-      },
-      include: { legalProfile: true },
-    });
+        include: { legalProfile: true },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const field = (err.meta?.target as string[])?.join(', ') ?? 'field';
+        throw new ConflictException(`A user with this ${field} already exists`);
+      }
+      throw new InternalServerErrorException('Registration failed. Please try again.');
+    }
 
     const otpIdentifier = dto.email ?? dto.phone ?? resolvedEmail;
     const otpCode = await this.createOtp(otpIdentifier);
@@ -184,7 +215,7 @@ export class RegistrationService {
   // ── Finance Officer ────────────────────────────────────────────────────────
 
   async getPendingLegalRegistrations() {
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         role: UserRole.CUSTOMER_LEGAL,
         legalProfile: { registrationStatus: 'SUBMITTED' },
@@ -202,29 +233,97 @@ export class RegistrationService {
             contactPersonName: true,
             registrationStatus: true,
             submittedAt: true,
-            documents: { select: { id: true, type: true, originalFileName: true, s3Key: true } },
             registrationReviews: { orderBy: { createdAt: 'desc' }, take: 1 },
           },
         },
       },
       orderBy: { createdAt: 'asc' },
     });
+
+    if (users.length === 0) {
+      return users.map((u) => ({
+        ...u,
+        legalProfile: u.legalProfile ? { ...u.legalProfile, documents: [] } : null,
+      }));
+    }
+
+    // Fetch all registration documents in one query, by uploadedById —
+    // catches docs uploaded before the legalProfileId auto-link fix (null legalProfileId)
+    const userIds = users.map((u) => u.id);
+    const allDocs = await this.prisma.document.findMany({
+      where: { uploadedById: { in: userIds }, orderId: null },
+      select: { id: true, type: true, originalFileName: true, s3Key: true, uploadedById: true },
+    });
+
+    const docsByUser = new Map<string, typeof allDocs>();
+    for (const doc of allDocs) {
+      if (!docsByUser.has(doc.uploadedById)) docsByUser.set(doc.uploadedById, []);
+      docsByUser.get(doc.uploadedById)!.push(doc);
+    }
+
+    return users.map((u) => ({
+      ...u,
+      legalProfile: u.legalProfile
+        ? { ...u.legalProfile, documents: docsByUser.get(u.id) ?? [] }
+        : null,
+    }));
   }
 
   async getLegalRegistrationDetail(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
+    const [user, documents] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          legalProfile: {
+            include: {
+              registrationReviews: { orderBy: { createdAt: 'desc' } },
+            },
+          },
+        },
+      }),
+      // Fetch all registration documents for this user regardless of whether
+      // legalProfileId was set (covers docs uploaded before the auto-link fix)
+      this.prisma.document.findMany({
+        where: { uploadedById: userId, orderId: null },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    if (!user?.legalProfile) throw new NotFoundException('Legal entity registration not found');
+
+    return {
+      ...user,
+      legalProfile: {
+        ...user.legalProfile,
+        documents,
+      },
+    };
+  }
+
+  async getAllLegalRegistrations() {
+    const users = await this.prisma.user.findMany({
+      where: { role: UserRole.CUSTOMER_LEGAL, deletedAt: null },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        accountStatus: true,
+        createdAt: true,
         legalProfile: {
-          include: {
-            documents: { orderBy: { createdAt: 'desc' } },
-            registrationReviews: { orderBy: { createdAt: 'desc' } },
+          select: {
+            id: true,
+            companyName: true,
+            taxRegistrationId: true,
+            contactPersonName: true,
+            registrationStatus: true,
+            submittedAt: true,
+            registrationReviews: { orderBy: { createdAt: 'desc' }, take: 1 },
           },
         },
       },
+      orderBy: { createdAt: 'desc' },
     });
-    if (!user?.legalProfile) throw new NotFoundException('Legal entity registration not found');
-    return user;
+    return users;
   }
 
   async reviewLegalRegistration(
@@ -247,6 +346,12 @@ export class RegistrationService {
     const newAccountStatus =
       action === 'APPROVE' ? AccountStatus.ACTIVE : AccountStatus.DEACTIVATED;
 
+    // Compute the next cycle number (1-based, increments on each review)
+    const existingReviewCount = await this.prisma.registrationReview.count({
+      where: { legalProfileId: profile.id },
+    });
+    const nextCycleNumber = existingReviewCount + 1;
+
     await this.prisma.$transaction([
       this.prisma.legalEntityProfile.update({
         where: { userId },
@@ -262,7 +367,7 @@ export class RegistrationService {
           reviewerId,                    // schema field (not reviewedById)
           action: action === 'APPROVE' ? 'APPROVE' : 'DECLINE',
           declineReason: action === 'REJECT' ? reason : undefined,
-          cycleNumber: 1,
+          cycleNumber: nextCycleNumber,
         },
       }),
     ]);
@@ -283,5 +388,14 @@ export class RegistrationService {
       where: { id: userId },
       data: { accountStatus: AccountStatus.ACTIVE },
     });
+  }
+
+  /** Returns the legalEntityProfile id for a given user (null if not a legal entity) */
+  async findLegalProfileIdByUserId(userId: string): Promise<string | null> {
+    const lp = await this.prisma.legalEntityProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    return lp?.id ?? null;
   }
 }

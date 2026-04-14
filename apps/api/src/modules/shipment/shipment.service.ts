@@ -109,6 +109,12 @@ export class ShipmentService {
     const order = await this.prisma.order.findUnique({ where: { orderId } });
     if (!order) throw new NotFoundException(`Order ${orderId} not found`);
 
+    // Read no-show fine amount from SystemConfig (default 50 AZN per BRD)
+    const fineConfig = await this.prisma.systemConfig.findUnique({
+      where: { key: 'NO_SHOW_FINE_AZN' },
+    });
+    const fineAmountAzn = fineConfig ? parseFloat(fineConfig.value) : 50;
+
     return this.prisma.$transaction([
       this.prisma.order.update({
         where: { orderId },
@@ -119,7 +125,7 @@ export class ShipmentService {
           orderId: order.id,
           userId: order.userId,
           type: 'NO_SHOW' as const,
-          amountAzn: 0,
+          amountAzn: fineAmountAzn,
           note: 'Automatic no-show fine — truck did not arrive within 30 minutes',
           issuedById: systemActorId,
         },

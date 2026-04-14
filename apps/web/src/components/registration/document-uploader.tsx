@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
 import { FILE_LIMITS } from '@pob-eqp/shared';
 
@@ -36,6 +37,7 @@ export function DocumentUploader({
   onRemove,
   maxFiles = 1,
 }: DocumentUploaderProps) {
+  const t = useTranslations('documentUploader');
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -45,14 +47,14 @@ export function DocumentUploader({
 
   const uploadFile = async (file: File) => {
     if (file.size > MAX_SIZE) {
-      setError(`File too large. Maximum size is ${MAX_SIZE / (1024 * 1024)} MB.`);
+      setError(t('fileTooLarge'));
       return;
     }
 
     const ext = file.name.split('.').pop()?.toLowerCase();
     const allowedExts = ['pdf', 'jpg', 'jpeg', 'png'];
     if (!ext || !allowedExts.includes(ext)) {
-      setError('Only PDF, JPG, and PNG files are accepted.');
+      setError(t('invalidType'));
       return;
     }
 
@@ -90,7 +92,7 @@ export function DocumentUploader({
       onUploaded(uploaded);
       setProgress(100);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+      const msg = err instanceof Error ? err.message : t('uploadFailed');
       setError(msg);
     } finally {
       setUploading(false);
@@ -156,7 +158,7 @@ export function DocumentUploader({
                 type="button"
                 onClick={() => handleRemove(f.fileKey)}
                 className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                aria-label="Remove file"
+                aria-label={t('removeFile')}
               >
                 ✕
               </button>
@@ -183,7 +185,7 @@ export function DocumentUploader({
           {uploading ? (
             <div className="space-y-2">
               <div className="w-8 h-8 border-3 border-pob-blue border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-sm text-gray-600">Uploading... {progress}%</p>
+              <p className="text-sm text-gray-600">{t('uploading', { progress })}</p>
               <div className="w-full bg-gray-200 rounded-full h-1.5">
                 <div
                   className="bg-pob-blue h-1.5 rounded-full transition-all"
@@ -195,7 +197,7 @@ export function DocumentUploader({
             <>
               <span className="text-3xl block mb-2">📎</span>
               <p className="text-sm font-medium text-gray-700">
-                Drop file here or <span className="text-pob-blue">browse</span>
+                {t('dropOrBrowse')} <span className="text-pob-blue">{t('browse')}</span>
               </p>
               <p className="text-xs text-gray-400 mt-1">{accept.replace(/\./g, '').toUpperCase()}</p>
             </>

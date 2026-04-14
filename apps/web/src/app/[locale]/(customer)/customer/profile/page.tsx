@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useAuthStore } from '@/store/auth.store';
 import { apiClient } from '@/lib/api-client';
 
@@ -39,6 +40,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function CustomerProfilePage() {
   const { user } = useAuthStore();
+  const t = useTranslations('profile');
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +49,7 @@ export default function CustomerProfilePage() {
     apiClient
       .get<{ data: ProfileData }>('/registration/me')
       .then((res) => setProfile(res.data.data))
-      .catch(() => setError('Failed to load profile'))
+      .catch(() => setError(t('failedToLoad')))
       .finally(() => setLoading(false));
   }, []);
 
@@ -71,8 +73,8 @@ export default function CustomerProfilePage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
-        <p className="text-gray-500 text-sm mt-1">Your account information</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+        <p className="text-gray-500 text-sm mt-1">{t('subtitle')}</p>
       </div>
 
       {/* Avatar + name */}
@@ -96,18 +98,18 @@ export default function CustomerProfilePage() {
 
       {/* Contact */}
       <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h3 className="font-semibold text-gray-800 mb-4">Contact Information</h3>
+        <h3 className="font-semibold text-gray-800 mb-4">{t('contactInfo')}</h3>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between">
-            <dt className="text-gray-500">Email</dt>
+            <dt className="text-gray-500">{t('email')}</dt>
             <dd className="text-gray-800 font-medium">{p?.email ?? '—'}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-500">Phone</dt>
+            <dt className="text-gray-500">{t('phone')}</dt>
             <dd className="text-gray-800 font-medium">{p?.phone ?? '—'}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-500">Preferred Language</dt>
+            <dt className="text-gray-500">{t('preferredLanguage')}</dt>
             <dd className="text-gray-800 font-medium uppercase">{p?.locale ?? '—'}</dd>
           </div>
         </dl>
@@ -116,17 +118,17 @@ export default function CustomerProfilePage() {
       {/* Individual profile */}
       {p?.individualProfile && (
         <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h3 className="font-semibold text-gray-800 mb-4">Personal Details</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">{t('personalDetails')}</h3>
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <dt className="text-gray-500">Full Name</dt>
+              <dt className="text-gray-500">{t('fullName')}</dt>
               <dd className="text-gray-800 font-medium">
                 {p.individualProfile.firstName} {p.individualProfile.fathersName ? `${p.individualProfile.fathersName} ` : ''}{p.individualProfile.lastName}
               </dd>
             </div>
             {p.individualProfile.dateOfBirth && (
               <div className="flex justify-between">
-                <dt className="text-gray-500">Date of Birth</dt>
+                <dt className="text-gray-500">{t('dateOfBirth')}</dt>
                 <dd className="text-gray-800 font-medium">
                   {new Date(p.individualProfile.dateOfBirth).toLocaleDateString()}
                 </dd>
@@ -134,7 +136,7 @@ export default function CustomerProfilePage() {
             )}
             {p.individualProfile.nationalIdOrPassport && (
               <div className="flex justify-between">
-                <dt className="text-gray-500">ID / Passport</dt>
+                <dt className="text-gray-500">{t('idPassport')}</dt>
                 <dd className="text-gray-800 font-medium font-mono">{p.individualProfile.nationalIdOrPassport}</dd>
               </div>
             )}
@@ -145,18 +147,18 @@ export default function CustomerProfilePage() {
       {/* Legal profile */}
       {p?.legalProfile && (
         <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <h3 className="font-semibold text-gray-800 mb-4">Company Details</h3>
+          <h3 className="font-semibold text-gray-800 mb-4">{t('companyDetails')}</h3>
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <dt className="text-gray-500">Company Name</dt>
+              <dt className="text-gray-500">{t('companyName')}</dt>
               <dd className="text-gray-800 font-medium">{p.legalProfile.companyName}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-gray-500">Tax ID</dt>
+              <dt className="text-gray-500">{t('taxId')}</dt>
               <dd className="text-gray-800 font-medium font-mono">{p.legalProfile.taxRegistrationId}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-gray-500">Contact Person</dt>
+              <dt className="text-gray-500">{t('contactPerson')}</dt>
               <dd className="text-gray-800 font-medium">{p.legalProfile.contactPersonName}</dd>
             </div>
           </dl>
@@ -165,16 +167,16 @@ export default function CustomerProfilePage() {
 
       {/* Account meta */}
       <div className="bg-white border border-gray-200 rounded-xl p-5">
-        <h3 className="font-semibold text-gray-800 mb-4">Account Activity</h3>
+        <h3 className="font-semibold text-gray-800 mb-4">{t('accountActivity')}</h3>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between">
-            <dt className="text-gray-500">Member Since</dt>
+            <dt className="text-gray-500">{t('memberSince')}</dt>
             <dd className="text-gray-800 font-medium">
               {p?.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-gray-500">Last Login</dt>
+            <dt className="text-gray-500">{t('lastLogin')}</dt>
             <dd className="text-gray-800 font-medium">
               {p?.lastLoginAt ? new Date(p.lastLoginAt).toLocaleString() : '—'}
             </dd>

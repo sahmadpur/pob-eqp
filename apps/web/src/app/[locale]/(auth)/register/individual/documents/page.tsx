@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { DocumentUploader } from '@/components/registration/document-uploader';
 import { useRegistrationStore } from '@/store/registration.store';
 
@@ -10,6 +10,8 @@ import { useRegistrationStore } from '@/store/registration.store';
 export default function IndividualDocumentsPage() {
   const locale = useLocale();
   const router = useRouter();
+  const t = useTranslations('registerDocuments');
+  const tReg = useTranslations('register');
   const { addDocumentUpload, otpVerified } = useRegistrationStore();
 
   const [idUploaded, setIdUploaded] = useState(false);
@@ -32,19 +34,19 @@ export default function IndividualDocumentsPage() {
             <div key={step} className="w-8 h-1.5 rounded-full bg-pob-blue" />
           ))}
         </div>
-        <span className="text-xs text-gray-400 ml-1">Step 4 of 4</span>
+        <span className="text-xs text-gray-400 ml-1">{tReg('step4of4')}</span>
       </div>
 
-      <h2 className="text-xl font-bold text-gray-800 mb-1">Identity Documents</h2>
+      <h2 className="text-xl font-bold text-gray-800 mb-1">{t('individualTitle')}</h2>
       <p className="text-gray-500 text-sm mb-5">
-        Upload your identification documents to verify your identity.
+        {t('individualSubtitle')}
       </p>
 
       <div className="space-y-5">
         <DocumentUploader
           documentType="NATIONAL_ID"
-          label="National ID or Passport"
-          description="Front page clearly showing your photo, name, and document number"
+          label={t('nationalId')}
+          description={t('nationalIdDesc')}
           required
           onUploaded={(f) => {
             addDocumentUpload(f.s3Key);
@@ -55,8 +57,8 @@ export default function IndividualDocumentsPage() {
 
         <DocumentUploader
           documentType="DRIVER_LICENSE"
-          label="Driver's License"
-          description="Must be valid and clearly legible (optional but recommended)"
+          label={t('driverLicense')}
+          description={t('driverLicenseDesc')}
           onUploaded={(f) => {
             addDocumentUpload(f.s3Key);
             setPhotoUploaded(true);
@@ -68,9 +70,7 @@ export default function IndividualDocumentsPage() {
       {/* Info box */}
       <div className="mt-5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl">
         <p className="text-xs text-amber-800 leading-relaxed">
-          <strong>Privacy Notice:</strong> Your documents are stored securely on our servers.
-          They will only be used for identity verification purposes and retained for 7 years
-          per legal requirements.
+          <strong>{t('privacyNotice')}:</strong> {t('privacyText')}
         </p>
       </div>
 
@@ -80,7 +80,7 @@ export default function IndividualDocumentsPage() {
           onClick={() => router.back()}
           className="py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors"
         >
-          ← Back
+          {t('back')}
         </button>
         <button
           type="button"
@@ -88,13 +88,13 @@ export default function IndividualDocumentsPage() {
           disabled={!canContinue || loading}
           className="py-2.5 bg-pob-blue text-white font-medium rounded-lg hover:bg-pob-blue-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {loading ? 'Completing...' : 'Complete Registration'}
+          {loading ? t('completing') : t('completeBtn')}
         </button>
       </div>
 
       {!idUploaded && (
         <p className="text-center text-xs text-gray-400 mt-3">
-          National ID or Passport is required to continue
+          {t('nationalIdRequired')}
         </p>
       )}
     </>

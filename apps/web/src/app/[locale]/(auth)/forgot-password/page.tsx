@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { apiClient } from '@/lib/api-client';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
 
 const schema = z.object({
@@ -15,6 +15,7 @@ type FormData = z.infer<typeof schema>;
 
 export default function ForgotPasswordPage() {
   const locale = useLocale();
+  const t = useTranslations('forgotPassword');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,7 +30,7 @@ export default function ForgotPasswordPage() {
       setSent(true);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg ?? 'Failed to send reset link. Please try again.');
+      setError(msg ?? t('failed'));
     }
   };
 
@@ -38,9 +39,9 @@ export default function ForgotPasswordPage() {
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="text-4xl mb-3">🔑</div>
-          <h1 className="text-2xl font-bold text-gray-900">Forgot Password</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
           <p className="text-gray-500 mt-1 text-sm">
-            Enter your email or phone number and we'll send you a reset link.
+            {t('subtitle')}
           </p>
         </div>
 
@@ -48,23 +49,23 @@ export default function ForgotPasswordPage() {
           <div className="space-y-4">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
               <div className="text-2xl mb-2">✅</div>
-              <p className="text-green-800 font-medium">Reset link sent!</p>
+              <p className="text-green-800 font-medium">{t('sentTitle')}</p>
               <p className="text-green-600 text-sm mt-1">
-                Check your email or SMS for the password reset instructions.
+                {t('sentMessage')}
               </p>
             </div>
             <Link
               href={`/${locale}/login`}
               className="block w-full text-center bg-pob-blue text-white py-3 rounded-xl font-semibold hover:bg-pob-blue-light transition-colors"
             >
-              Back to Login
+              {t('backToLogin')}
             </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email or Phone Number
+                {t('emailOrPhone')}
               </label>
               <input
                 {...register('identifier')}
@@ -88,14 +89,14 @@ export default function ForgotPasswordPage() {
               disabled={isSubmitting}
               className="w-full bg-pob-blue text-white py-3 rounded-xl font-semibold hover:bg-pob-blue-light disabled:opacity-50 transition-colors"
             >
-              {isSubmitting ? 'Sending…' : 'Send Reset Link'}
+              {isSubmitting ? t('sending') : t('sendBtn')}
             </button>
 
             <Link
               href={`/${locale}/login`}
               className="block w-full text-center text-gray-500 hover:text-gray-700 text-sm transition-colors"
             >
-              ← Back to Login
+              ← {t('backToLogin')}
             </Link>
           </form>
         )}
