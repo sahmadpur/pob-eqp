@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request, Query, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
@@ -19,7 +19,18 @@ export class OrdersController {
     @Body() dto: Parameters<OrdersService['createOrder']>[0],
     @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
-    return this.ordersService.createOrder({ ...dto, userId: req.user.id });
+    return this.ordersService.createOrder({ ...dto, userId: req.user.id, userRole: req.user.role });
+  }
+
+  @Get()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.FINANCE_OFFICER, UserRole.ADMINISTRATOR)
+  @ApiOperation({ summary: 'Get all orders (staff only)' })
+  async getAllOrders(
+    @Query('status') status?: string,
+    @Query('paymentMethod') paymentMethod?: string,
+  ) {
+    return this.ordersService.findAll({ status, paymentMethod });
   }
 
   @Get('me')
@@ -28,12 +39,7 @@ export class OrdersController {
     return this.ordersService.findByUser(req.user.id);
   }
 
-  @Get(':orderId')
-  @ApiOperation({ summary: 'Get order details by orderId' })
-  async getOrder(@Param('orderId') orderId: string) {
-    return this.ordersService.findByOrderId(orderId);
-  }
-
+  // Static routes MUST come before dynamic :orderId to avoid NestJS shadowing them
   @Get('availability/:planId/:queueTypeId')
   @ApiOperation({ summary: 'Get daily slot availability' })
   async getAvailability(
@@ -42,6 +48,32 @@ export class OrdersController {
     @Query('date') date: string,
   ) {
     return this.ordersService.getDailyAvailability(planId, queueTypeId, date);
+  }
+
+  @Get(':orderId')
+  @ApiOperation({ summary: 'Get order details by orderId' })
+  async getOrder(@Param('orderId') orderId: string) {
+    return this.ordersService.findByOrderId(orderId);
+  }
+
+  @Patch(':orderId')
+  @ApiOperation({ summary: 'Edit an order (customer, PENDING_PAYMENT only)' })
+  async editOrder(
+    @Param('orderId') orderId: string,
+    @Body() dto: Parameters<OrdersService['editOrder']>[2],
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
+  ) {
+    return this.ordersService.editOrder(orderId, req.user.id, dto);
+  }
+
+  @Post(':orderId/cancel')
+  @ApiOperation({ summary: 'Cancel an order (customer, PENDING_PAYMENT only)' })
+  async cancelOrder(
+    @Param('orderId') orderId: string,
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
+  ) {
+    const [order] = await this.ordersService.cancelOrder(orderId, req.user.id);
+    return order;
   }
 
   @Patch(':orderId/status')
@@ -66,5 +98,39 @@ export class OrdersController {
       dto.note,
     );
     return event;
+  }
+
+  @Post(':orderId/verify')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.FINANCE_OFFICER, UserRole.ADMINISTRATOR)
+  @ApiOperation({ summary: 'Finance Officer: verify order after payment' })
+  async verifyOrder(
+    @Param('orderId') orderId: string,
+    @Body() dto: Parameters<OrdersService['verifyOrder']>[2],
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
+  ) {
+    return this.ordersService.verifyOrder(orderId, req.user.id, dto);
+  }
+
+  @Post(':orderId/clarify/respond')
+  @ApiOperation({ summary: 'Customer: respond to clarification request' })
+  async respondToClarification(
+    @Param('orderId') orderId: string,
+    @Body() dto: { customerNote: string; customerDocIds?: string[] },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
+  ) {
+    return this.ordersService.respondToClarification(orderId, req.user.id, dto);
+  }
+
+  @Post(':orderId/clarify')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.FINANCE_OFFICER, UserRole.ADMINISTRATOR)
+  @ApiOperation({ summary: 'Finance Officer: request clarification from customer' })
+  async requestClarification(
+    @Param('orderId') orderId: string,
+    @Body() dto: { requestNote: string },
+    @Request() req: { user: { id: string; role: string; accountStatus: string } },
+  ) {
+    return this.ordersService.requestClarification(orderId, req.user.id, dto.requestNote);
   }
 }
