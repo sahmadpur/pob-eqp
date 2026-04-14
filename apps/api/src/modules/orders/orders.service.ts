@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { OrderStatus, TransportType, CargoType, PaymentMethod } from '@pob-eqp/shared';
+import { OrderStatus, TransportType, CargoType, PaymentMethod, UserRole } from '@pob-eqp/shared';
 import { ORDER_CONSTANTS } from '@pob-eqp/shared';
 
 @Injectable()
@@ -15,6 +15,7 @@ export class OrdersService {
 
   async createOrder(dto: {
     userId: string;
+    userRole?: string;
     destination: string;
     queueType?: string;
     scheduledDate?: string;
@@ -35,6 +36,28 @@ export class OrdersService {
     planQueueTypeId?: string;
     planDayId?: string;
   }) {
+    // Bank transfer only for legal entities
+    if (dto.paymentMethod === PaymentMethod.BANK_TRANSFER && dto.userRole !== UserRole.CUSTOMER_LEGAL) {
+      throw new BadRequestException('Bank transfer is only available for legal entity customers.');
+    }
+
+    // Validate that an ACTIVE plan covers the requested date
+    if (dto.scheduledDate) {
+      const date = new Date(dto.scheduledDate);
+      const activePlan = await this.prisma.plan.findFirst({
+        where: {
+          status: 'ACTIVE',
+          startDate: { lte: date },
+          endDate: { gte: date },
+        },
+      });
+      if (!activePlan) {
+        throw new BadRequestException(
+          'No operational plan exists for the selected date. Please choose a different date.',
+        );
+      }
+    }
+
     const orderId = this.generateOrderId();
 
     // Fee calculation: 50 AZN base + 0.05 AZN/tonne + queue surcharge
@@ -56,6 +79,7 @@ export class OrdersService {
         planQueueTypeId: dto.planQueueTypeId ?? null,
         planDayId: dto.planDayId ?? null,
         status: OrderStatus.PENDING_PAYMENT,
+        queueType: dto.queueType ?? null,
         destination: dto.destination,
         driverFullName: dto.driverFullName,
         driverNationalId: dto.driverNationalId,
@@ -81,10 +105,12 @@ export class OrdersService {
       where: { orderId },
       include: {
         user: { select: { id: true, email: true, phone: true } },
-        planQueueType: true,          // schema relation name
-        timeline: { orderBy: { createdAt: 'asc' } }, // schema relation name
+        planQueueType: true,
+        timeline: { orderBy: { createdAt: 'asc' } },
         documents: true,
         payments: true,
+        verification: true,
+        clarificationRounds: { orderBy: { roundNumber: 'asc' } },
       },
     });
     if (!order) throw new NotFoundException(`Order ${orderId} not found`);
@@ -113,6 +139,270 @@ export class OrdersService {
           actorId,
           event: status,   // schema uses `event` string field (not `status`)
           note,
+        },
+      }),
+    ]);
+  }
+
+  async findAll(filters?: { status?: string; paymentMethod?: string }) {
+    return this.prisma.order.findMany({
+      where: {
+        ...(filters?.status ? { status: filters.status as OrderStatus } : {}),
+        ...(filters?.paymentMethod ? { paymentMethod: filters.paymentMethod as PaymentMethod } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, email: true, phone: true } },
+        planQueueType: true,
+        payments: true,
+      },
+    });
+  }
+
+  async cancelOrder(orderId: string, userId: string) {
+    const order = await this.prisma.order.findUnique({ where: { orderId } });
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+    if (order.userId !== userId) throw new ForbiddenException('You do not own this order');
+    if (order.status !== OrderStatus.PENDING_PAYMENT) {
+      throw new BadRequestException('Only orders awaiting payment can be cancelled');
+    }
+
+    return this.prisma.$transaction([
+      this.prisma.order.update({
+        where: { orderId },
+        data: { status: OrderStatus.CANCELLED, cancelledAt: new Date(), cancelledReason: 'Cancelled by customer' },
+      }),
+      this.prisma.orderEvent.create({
+        data: { orderId: order.id, actor: 'Customer', actorId: userId, event: 'CANCELLED', note: 'Cancelled by customer before payment' },
+      }),
+    ]);
+  }
+
+  async editOrder(
+    orderId: string,
+    userId: string,
+    dto: {
+      destination?: string;
+      queueType?: string;
+      scheduledDate?: string;
+      driverFullName?: string;
+      driverNationalId?: string;
+      driverPhone?: string;
+      driverLicense?: string;
+      transportType?: TransportType;
+      vehiclePlateNumber?: string;
+      vehicleMakeModel?: string;
+      cargoType?: CargoType;
+      cargoDescription?: string;
+      cargoWeightTonnes?: number;
+      isHazardous?: boolean;
+      paymentMethod?: PaymentMethod;
+    },
+  ) {
+    const order = await this.prisma.order.findUnique({ where: { orderId } });
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+    if (order.userId !== userId) throw new ForbiddenException('You do not own this order');
+    if (order.status !== OrderStatus.PENDING_PAYMENT) {
+      throw new BadRequestException('Only orders awaiting payment can be edited');
+    }
+
+    // Re-validate date coverage if date changed
+    if (dto.scheduledDate) {
+      const date = new Date(dto.scheduledDate);
+      const activePlan = await this.prisma.plan.findFirst({
+        where: { status: 'ACTIVE', startDate: { lte: date }, endDate: { gte: date } },
+      });
+      if (!activePlan) {
+        throw new BadRequestException('No operational plan exists for the selected date. Please choose a different date.');
+      }
+    }
+
+    // Recalculate fees with updated values
+    const newQueueType = dto.queueType ?? order.queueType;
+    const newCargoWeight = dto.cargoWeightTonnes ?? (order.cargoWeightTonnes ? Number(order.cargoWeightTonnes) : 0);
+    const baseFeeAzn = 50;
+    const cargoFeeAzn = newCargoWeight ? +(newCargoWeight * 0.05).toFixed(2) : 0;
+    const queueSurchargeAzn = newQueueType === 'PRIORITY' ? 30 : newQueueType === 'FAST_TRACK' ? 15 : 0;
+    const totalAmountAzn = baseFeeAzn + cargoFeeAzn + queueSurchargeAzn;
+
+    const cargoType: CargoType | undefined | null = dto.isHazardous
+      ? CargoType.HAZARDOUS
+      : dto.cargoType !== undefined
+        ? (dto.cargoType ?? null)
+        : undefined;
+
+    return this.prisma.order.update({
+      where: { orderId },
+      data: {
+        ...(dto.destination !== undefined ? { destination: dto.destination } : {}),
+        ...(dto.queueType !== undefined ? { queueType: dto.queueType } : {}),
+        ...(dto.scheduledDate !== undefined ? { scheduledDate: new Date(dto.scheduledDate) } : {}),
+        ...(dto.driverFullName !== undefined ? { driverFullName: dto.driverFullName } : {}),
+        ...(dto.driverNationalId !== undefined ? { driverNationalId: dto.driverNationalId } : {}),
+        ...(dto.driverPhone !== undefined ? { driverPhone: dto.driverPhone } : {}),
+        ...(dto.driverLicense !== undefined ? { driverLicense: dto.driverLicense } : {}),
+        ...(dto.transportType !== undefined ? { transportType: dto.transportType } : {}),
+        ...(dto.vehiclePlateNumber !== undefined ? { vehiclePlateNumber: dto.vehiclePlateNumber } : {}),
+        ...(dto.vehicleMakeModel !== undefined ? { vehicleMakeModel: dto.vehicleMakeModel } : {}),
+        ...(cargoType !== undefined ? { cargoType } : {}),
+        ...(dto.cargoDescription !== undefined ? { cargoDescription: dto.cargoDescription } : {}),
+        ...(dto.cargoWeightTonnes !== undefined ? { cargoWeightTonnes: dto.cargoWeightTonnes } : {}),
+        ...(dto.paymentMethod !== undefined ? { paymentMethod: dto.paymentMethod } : {}),
+        baseFeeAzn,
+        cargoFeeAzn,
+        queueSurchargeAzn,
+        totalAmountAzn,
+      },
+    });
+  }
+
+  async verifyOrder(
+    orderId: string,
+    actorId: string,
+    dto: {
+      checkDocumentsOk: boolean;
+      checkDriverIdOk: boolean;
+      checkVehicleOk: boolean;
+      checkPaymentOk: boolean;
+      upgradedToPriority?: boolean;
+      internalNote?: string;
+    },
+  ) {
+    const order = await this.prisma.order.findUnique({ where: { orderId } });
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+    if (order.status !== OrderStatus.AWAITING_VERIFICATION) {
+      throw new BadRequestException('Order is not in AWAITING_VERIFICATION status');
+    }
+
+    const now = new Date();
+
+    return this.prisma.$transaction([
+      this.prisma.orderVerification.upsert({
+        where: { orderId: order.id },
+        create: {
+          orderId: order.id,
+          verifierId: actorId,
+          checkDocumentsOk: dto.checkDocumentsOk,
+          checkDriverIdOk: dto.checkDriverIdOk,
+          checkVehicleOk: dto.checkVehicleOk,
+          checkPaymentOk: dto.checkPaymentOk,
+          upgradedToPriority: dto.upgradedToPriority ?? false,
+          internalNote: dto.internalNote ?? null,
+          verifiedAt: now,
+        },
+        update: {
+          verifierId: actorId,
+          checkDocumentsOk: dto.checkDocumentsOk,
+          checkDriverIdOk: dto.checkDriverIdOk,
+          checkVehicleOk: dto.checkVehicleOk,
+          checkPaymentOk: dto.checkPaymentOk,
+          upgradedToPriority: dto.upgradedToPriority ?? false,
+          internalNote: dto.internalNote ?? null,
+          verifiedAt: now,
+        },
+      }),
+      this.prisma.order.update({
+        where: { orderId },
+        data: { status: OrderStatus.VERIFIED },
+      }),
+      this.prisma.orderClarificationRound.updateMany({
+        where: { orderId: order.id, closedAt: null },
+        data: { closedAt: now },
+      }),
+      this.prisma.orderEvent.create({
+        data: {
+          orderId: order.id,
+          actor: 'Finance',
+          actorId,
+          event: 'VERIFIED',
+          note: dto.internalNote ?? null,
+        },
+      }),
+    ]);
+  }
+
+  async requestClarification(
+    orderId: string,
+    actorId: string,
+    requestNote: string,
+  ) {
+    const order = await this.prisma.order.findUnique({ where: { orderId } });
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+    if (order.status !== OrderStatus.AWAITING_VERIFICATION) {
+      throw new BadRequestException('Order is not in AWAITING_VERIFICATION status');
+    }
+
+    const existingCount = await this.prisma.orderClarificationRound.count({
+      where: { orderId: order.id },
+    });
+    if (existingCount >= 2) {
+      throw new BadRequestException('Maximum 2 clarification rounds already reached for this order');
+    }
+
+    return this.prisma.$transaction([
+      this.prisma.orderClarificationRound.create({
+        data: {
+          orderId: order.id,
+          roundNumber: existingCount + 1,
+          requestNote,
+          requestedById: actorId,
+        },
+      }),
+      this.prisma.order.update({
+        where: { orderId },
+        data: { status: OrderStatus.AWAITING_CLARIFICATION },
+      }),
+      this.prisma.orderEvent.create({
+        data: {
+          orderId: order.id,
+          actor: 'Finance',
+          actorId,
+          event: 'CLARIFICATION_REQUESTED',
+          note: requestNote,
+        },
+      }),
+    ]);
+  }
+
+  async respondToClarification(
+    orderId: string,
+    userId: string,
+    dto: { customerNote: string; customerDocIds?: string[] },
+  ) {
+    const order = await this.prisma.order.findUnique({ where: { orderId } });
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+    if (order.userId !== userId) throw new ForbiddenException('You do not own this order');
+    if (order.status !== OrderStatus.AWAITING_CLARIFICATION) {
+      throw new BadRequestException('Order is not in AWAITING_CLARIFICATION status');
+    }
+
+    const openRound = await this.prisma.orderClarificationRound.findFirst({
+      where: { orderId: order.id, respondedAt: null },
+    });
+    if (!openRound) throw new NotFoundException('No open clarification round found for this order');
+
+    const now = new Date();
+
+    return this.prisma.$transaction([
+      this.prisma.orderClarificationRound.update({
+        where: { id: openRound.id },
+        data: {
+          customerNote: dto.customerNote,
+          customerDocIds: dto.customerDocIds ?? [],
+          respondedAt: now,
+        },
+      }),
+      this.prisma.order.update({
+        where: { orderId },
+        data: { status: OrderStatus.AWAITING_VERIFICATION },
+      }),
+      this.prisma.orderEvent.create({
+        data: {
+          orderId: order.id,
+          actor: 'Customer',
+          actorId: userId,
+          event: 'CLARIFICATION_RESPONDED',
+          note: dto.customerNote,
         },
       }),
     ]);
