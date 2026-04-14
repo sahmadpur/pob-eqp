@@ -262,6 +262,7 @@ model User {
   auditLogs             AuditLog[]
   financeReviews        RegistrationReview[]      @relation("FinanceReviewer")
   orderVerifications    OrderVerification[]       @relation("FinanceVerifier")
+  clarificationRoundsRequested  OrderClarificationRound[] @relation("ClarificationRequester")
   gateOverrides         GateOverride[]            @relation("GateOperator")
   finesIssued           Fine[]                    @relation("FineIssuer")
   planChanges           PlanAudit[]               @relation("PlanAuditor")
@@ -346,6 +347,7 @@ model LegalEntityProfile {
   taxRegistrationId     String             @unique
   legalAddress          String
   contactPersonName     String
+  contactPersonPhone    String?
   contactPersonPosition String
   country               String?
 
@@ -526,6 +528,7 @@ model Order {
   vesselId              String?
 
   status                OrderStatus    @default(PENDING_PAYMENT)
+  queueType             String?        // PRIORITY | FAST_TRACK | REGULAR — denormalized for display
   destination           String
 
   // Driver details
@@ -594,6 +597,7 @@ model Order {
   timeline              OrderEvent[]
   fines                 Fine[]
   supportTickets        SupportTicket[]
+  clarificationRounds   OrderClarificationRound[]
 
   @@index([userId])
   @@index([status])
@@ -659,6 +663,30 @@ model OrderVerification {
   verifier             User?     @relation("FinanceVerifier", fields: [verifierId], references: [id])
 
   @@map("order_verifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORDER CLARIFICATION ROUNDS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model OrderClarificationRound {
+  id              String    @id @default(cuid())
+  orderId         String
+  roundNumber     Int
+  requestNote     String
+  requestedAt     DateTime  @default(now())
+  requestedById   String
+
+  customerNote    String?
+  customerDocIds  String[]  @default([])
+  respondedAt     DateTime?
+  closedAt        DateTime?
+
+  order           Order     @relation(fields: [orderId], references: [id])
+  requestedBy     User      @relation("ClarificationRequester", fields: [requestedById], references: [id])
+
+  @@index([orderId])
+  @@map("order_clarification_rounds")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
