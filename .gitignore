@@ -16,7 +16,7 @@ out
 .env.development
 .env.staging
 .env.production
-
+comments.env
 # Turbo cache
 .turbo
 

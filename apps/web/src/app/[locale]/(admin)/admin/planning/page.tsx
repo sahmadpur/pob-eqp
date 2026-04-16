@@ -223,10 +223,10 @@ function QueueTypeEditor({
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 w-20">{t('orderCol')}</th>
-              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">{t('nameCol')}</th>
-              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">{t('baseTypeCol')}</th>
-              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500 w-28">{t('shareCol')}</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-600 w-20">{t('orderCol')}</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-600">{t('nameCol')}</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-600">{t('baseTypeCol')}</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-600 w-28">{t('shareCol')}</th>
               <th className="px-3 py-2 w-10" />
             </tr>
           </thead>

@@ -83,7 +83,7 @@ export default function AdminRegistrationsPage() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -155,24 +155,15 @@ export default function AdminRegistrationsPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colCompany')}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colVoen')}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colContact')}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colStatus')}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colRegistered')}
-                </th>
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[800px]">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colCompany')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colVoen')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colContact')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colStatus')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colRegistered')}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -221,6 +212,7 @@ export default function AdminRegistrationsPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

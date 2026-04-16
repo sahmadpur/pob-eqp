@@ -1,4 +1,4 @@
-version: '3.9'
+#version: '3.9'
 
 services:
   postgres:
@@ -14,7 +14,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-pob_user} -d ${POSTGRES_DB:-pob_eqp}']
+      test: [ 'CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-pob_user} -d ${POSTGRES_DB:-pob_eqp}' ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,7 +29,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-redis_secret}', 'ping']
+      test: [ 'CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-redis_secret}', 'ping' ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,8 +39,8 @@ services:
     container_name: pob-mailhog
     restart: unless-stopped
     ports:
-      - '1025:1025'   # SMTP
-      - '8025:8025'   # Web UI — open http://localhost:8025 to read emails
+      - '1025:1025' # SMTP
+      - '8025:8025' # Web UI — open http://localhost:8025 to read emails
 
   api:
     build:

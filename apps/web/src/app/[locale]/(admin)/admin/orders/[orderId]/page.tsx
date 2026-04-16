@@ -15,6 +15,14 @@ interface Payment {
   failureReason: string | null;
 }
 
+interface TimelineEvent {
+  id: string;
+  actor: string;
+  event: string;
+  note: string | null;
+  createdAt: string;
+}
+
 interface OrderDetail {
   id: string;
   orderId: string;
@@ -40,6 +48,7 @@ interface OrderDetail {
   createdAt: string;
   user: { id: string; email: string; phone: string };
   payments: Payment[];
+  timeline: TimelineEvent[];
 }
 
 export default function AdminOrderDetailPage() {
@@ -265,6 +274,27 @@ export default function AdminOrderDetailPage() {
           {payment?.failureReason && row('Rejection reason', payment.failureReason)}
         </div>
       </div>
+
+      {/* Timeline */}
+      {order.timeline && order.timeline.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h2 className="font-semibold text-gray-800 text-sm mb-4">Order History</h2>
+          <ol className="relative border-l border-gray-200 ml-2 space-y-5">
+            {order.timeline.map((ev) => (
+              <li key={ev.id} className="ml-4">
+                <div className="absolute -left-1.5 w-3 h-3 rounded-full bg-pob-blue border-2 border-white" />
+                <p className="text-sm font-medium text-gray-800">{ev.event.replace(/_/g, ' ')}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  <span className="font-medium">{ev.actor}</span>
+                  {' · '}
+                  {new Date(ev.createdAt).toLocaleString()}
+                </p>
+                {ev.note && <p className="text-xs text-gray-500 mt-1 italic">{ev.note}</p>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

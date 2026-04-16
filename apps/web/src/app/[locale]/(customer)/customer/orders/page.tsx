@@ -107,7 +107,8 @@ export default function MyOrdersPage() {
 
       {!loading && orders.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[700px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colOrder')}</th>
@@ -129,16 +130,23 @@ export default function MyOrdersPage() {
                     {order.scheduledDate ? new Date(order.scheduledDate).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {order.status?.replace(/_/g, ' ')}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {order.status?.replace(/_/g, ' ')}
+                      </span>
+                      {order.status === 'AWAITING_CLARIFICATION' && (
+                        <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full font-medium animate-pulse">
+                          Action needed
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-gray-500">{new Date(order.createdAt).toLocaleDateString()}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => router.push(`/${locale}/customer/orders/${order.orderId}`)}
-                        className="text-xs px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+                        className="text-xs px-2.5 py-1 bg-pob-blue text-white hover:bg-pob-blue-light rounded-md transition-colors"
                       >
                         View
                       </button>
@@ -173,17 +181,13 @@ export default function MyOrdersPage() {
                           )}
                         </>
                       )}
-                      {order.status === 'AWAITING_CLARIFICATION' && (
-                        <span className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full font-medium animate-pulse">
-                          Action needed
-                        </span>
-                      )}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

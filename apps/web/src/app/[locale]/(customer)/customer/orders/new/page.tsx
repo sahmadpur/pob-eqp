@@ -10,36 +10,38 @@ import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/store/auth.store';
 import { UserRole } from '@pob-eqp/shared';
 
-const schema = z.object({
-  // Queue & schedule
-  queueType:        z.enum(['PRIORITY', 'FAST_TRACK', 'REGULAR']),
-  scheduledDate:    z.string().min(1, 'Select a date'),
-  destination:      z.string().min(2, 'Destination required').max(200),
+const DESTINATIONS = [
+  'Kuryk, Kazakhstan',
+  'Turkmenbashi, Turkmenistan',
+] as const;
 
-  // Vehicle
+const schema = z.object({
+  queueType:          z.enum(['PRIORITY', 'FAST_TRACK', 'REGULAR']),
+  scheduledDate:      z.string().min(1, 'Select a date'),
+  destination:        z.enum(['Kuryk, Kazakhstan', 'Turkmenbashi, Turkmenistan']),
   vehiclePlateNumber: z.string().min(2, 'Vehicle plate required').max(20),
   transportType:      z.enum(['DRIVER_ONLY', 'TRANSPORT', 'TRANSPORT_WITH_CARGO']),
-  vehicleMakeModel:   z.string().max(100).optional(),
-
-  // Driver
-  driverFullName:   z.string().min(3, 'Full name required').max(200),
-  driverNationalId: z.string().min(4, 'National ID required').max(30),
-  driverPhone:      z.string().regex(/^\+[1-9]\d{6,14}$/, 'E.164 format e.g. +994501234567'),
-  driverLicense:    z.string().max(30).optional(),
-
-  // Cargo
-  cargoDescription: z.string().min(3, 'Describe the cargo').max(500),
-  cargoWeightKg:    z.coerce.number().min(1, 'Weight required').max(1000000),
-  isHazardous:      z.boolean().default(false),
-
-  // Payment
-  paymentMethod:    z.enum(['BANK_TRANSFER', 'CASH', 'CARD']),
+  vehicleMakeModel:   z.string().min(1, 'Make & model required').max(100),
+  driverFullName:     z.string().min(3, 'Full name required').max(200),
+  driverNationalId:   z.string().min(4, 'National ID required').max(30),
+  driverPhone:        z.string().regex(/^\+[1-9]\d{6,14}$/, 'E.164 format e.g. +994501234567'),
+  driverLicense:      z.string().min(2, 'Driver license number required').max(30),
+  cargoDescription:   z.string().min(3, 'Describe the cargo').max(500),
+  cargoWeightKg:      z.coerce.number().min(1, 'Weight required').max(1000000),
+  cargoType:          z.enum(['GENERAL', 'HAZARDOUS', 'PERISHABLE']).default('GENERAL'),
+  paymentMethod:      z.enum(['BANK_TRANSFER', 'CASH', 'CARD']),
 });
 
 type FormData = z.infer<typeof schema>;
 
-// QUEUE_OPTIONS defined inside component to use t()
-
+interface DocFiles {
+  VEHICLE_REGISTRATION?: File;
+  VEHICLE_INSURANCE?: File;
+  DRIVER_LICENSE?: File;
+  PASSPORT?: File;
+  CMR?: File;
+  CARGO_DECLARATION?: File;
+}
 
 const tomorrow = new Date();
 tomorrow.setDate(tomorrow.getDate() + 1);
@@ -51,10 +53,13 @@ export default function NewOrderPage() {
   const t = useTranslations('newOrder');
   const { user } = useAuthStore();
   const isLegal = user?.role === UserRole.CUSTOMER_LEGAL;
+
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
   const [checkingDate, setCheckingDate] = useState(false);
+  const [docFiles, setDocFiles] = useState<DocFiles>({});
+  const [docErrors, setDocErrors] = useState<string | null>(null);
 
   const QUEUE_OPTIONS = [
     { value: 'REGULAR',    label: t('queueRegular'),    desc: t('queueRegularDesc'),    color: 'border-gray-300'  },
@@ -64,11 +69,17 @@ export default function NewOrderPage() {
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { queueType: 'REGULAR', isHazardous: false, transportType: 'TRANSPORT_WITH_CARGO', paymentMethod: 'CASH' },
+    defaultValues: {
+      queueType: 'REGULAR',
+      cargoType: 'GENERAL',
+      transportType: 'TRANSPORT_WITH_CARGO',
+      paymentMethod: 'CASH',
+      destination: 'Kuryk, Kazakhstan',
+    },
   });
 
   const selectedQueue = watch('queueType');
-  const isHazardous = watch('isHazardous');
+  const transportType = watch('transportType');
 
   const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const date = e.target.value;
@@ -77,24 +88,58 @@ export default function NewOrderPage() {
     setCheckingDate(true);
     setDateError(null);
     try {
-      const res = await apiClient.get<{ data: { covered: boolean } }>(
-        `/planning/check-date?date=${date}`,
-      );
-      if (!res.data.data.covered) {
-        setDateError(t('noActivePlan'));
-      }
+      const res = await apiClient.get<{ data: { covered: boolean } }>(`/planning/check-date?date=${date}`);
+      if (!res.data.data.covered) setDateError(t('noActivePlan'));
     } catch {
-      // If check fails, let server-side validation catch it
+      // let server validate
     } finally {
       setCheckingDate(false);
     }
   };
 
+  const setFile = (key: keyof DocFiles, file: File | undefined) => {
+    setDocFiles((prev) => ({ ...prev, [key]: file }));
+    setDocErrors(null);
+  };
+
+  const uploadDocs = async (orderDbId: string, orderId: string) => {
+    const entries: [keyof DocFiles, string][] = [
+      ['VEHICLE_REGISTRATION', 'VEHICLE_REGISTRATION'],
+      ['VEHICLE_INSURANCE', 'VEHICLE_INSURANCE'],
+      ['DRIVER_LICENSE', 'DRIVER_LICENSE'],
+      ['PASSPORT', 'PASSPORT'],
+      ['CMR', 'CMR'],
+      ['CARGO_DECLARATION', 'CARGO_DECLARATION'],
+    ];
+    for (const [key, docType] of entries) {
+      const file = docFiles[key];
+      if (!file) continue;
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('documentType', docType);
+      await apiClient.post(`/orders/${orderId}/documents`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
+    // Validate required documents
+    if (!docFiles.DRIVER_LICENSE) { setDocErrors(t('errorDriverLicense')); return; }
+    if (!docFiles.PASSPORT) { setDocErrors(t('errorPassport')); return; }
+    if (transportType !== 'DRIVER_ONLY') {
+      if (!docFiles.VEHICLE_REGISTRATION) { setDocErrors(t('errorVehicleRegistration')); return; }
+      if (!docFiles.VEHICLE_INSURANCE) { setDocErrors(t('errorVehicleInsurance')); return; }
+    }
+    if (transportType === 'TRANSPORT_WITH_CARGO') {
+      if (!docFiles.CMR) { setDocErrors(t('errorCmr')); return; }
+      if (!docFiles.CARGO_DECLARATION) { setDocErrors(t('errorCargoDeclaration')); return; }
+    }
+
     setSubmitting(true);
     setApiError(null);
     try {
-      await apiClient.post('/orders', {
+      const res = await apiClient.post<{ data: { id: string; orderId: string } }>('/orders', {
         destination:        data.destination,
         queueType:          data.queueType,
         scheduledDate:      new Date(data.scheduledDate).toISOString(),
@@ -107,9 +152,10 @@ export default function NewOrderPage() {
         driverLicense:      data.driverLicense,
         cargoDescription:   data.cargoDescription,
         cargoWeightTonnes:  +(data.cargoWeightKg / 1000).toFixed(3),
-        isHazardous:        data.isHazardous,
+        cargoType:          data.cargoType,
         paymentMethod:      data.paymentMethod,
       });
+      await uploadDocs(res.data.data.id, res.data.data.orderId);
       router.push(`/${locale}/customer/orders`);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
@@ -121,10 +167,28 @@ export default function NewOrderPage() {
 
   const field = (label: string, name: keyof FormData, type = 'text', placeholder = '') => (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-600 mb-1">{label}<span className="text-red-500 ml-0.5">*</span></label>
       <input type={type} placeholder={placeholder} {...register(name as never)}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue" />
       {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
+    </div>
+  );
+
+  const fileInput = (label: string, key: keyof DocFiles, required = false) => (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <label className="flex items-center gap-2 cursor-pointer group">
+        <span className={`flex-1 px-3 py-2 border rounded-lg text-sm truncate ${docFiles[key] ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-300 text-gray-400'}`}>
+          {docFiles[key] ? docFiles[key]!.name : t('chooseFile')}
+        </span>
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+          onChange={(e) => setFile(key, e.target.files?.[0])} />
+        <span className="px-3 py-2 bg-gray-100 group-hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors whitespace-nowrap">
+          {t('browse')}
+        </span>
+      </label>
     </div>
   );
 
@@ -137,6 +201,7 @@ export default function NewOrderPage() {
       </div>
 
       {apiError && <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{apiError}</div>}
+      {docErrors && <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{docErrors}</div>}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
 
@@ -160,7 +225,7 @@ export default function NewOrderPage() {
           <h3 className="font-semibold text-gray-800 text-sm">{t('scheduleSection')}</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">{t('date')}</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{t('date')}<span className="text-red-500 ml-0.5">*</span></label>
               <input type="date" min={minDate} {...register('scheduledDate')}
                 onChange={handleDateChange}
                 className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue ${dateError ? 'border-red-400' : 'border-gray-300'}`} />
@@ -168,7 +233,14 @@ export default function NewOrderPage() {
               {dateError && <p className="text-red-500 text-xs mt-1">{dateError}</p>}
               {errors.scheduledDate && !dateError && <p className="text-red-500 text-xs mt-1">{errors.scheduledDate.message}</p>}
             </div>
-            {field(t('destination'), 'destination', 'text', 'e.g. Terminal 3, Baku')}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{t('destination')}<span className="text-red-500 ml-0.5">*</span></label>
+              <select {...register('destination')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue">
+                {DESTINATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+              {errors.destination && <p className="text-red-500 text-xs mt-1">{errors.destination.message}</p>}
+            </div>
           </div>
         </div>
 
@@ -176,9 +248,9 @@ export default function NewOrderPage() {
         <div className="bg-gray-50 rounded-xl p-4 space-y-3">
           <h3 className="font-semibold text-gray-800 text-sm">{t('vehicleSection')}</h3>
           <div className="grid grid-cols-2 gap-3">
-            {field(t('plateNumber'), 'vehiclePlateNumber', 'text', 'e.g. 10-AA-123')}
+            {field(t('plateNumber'), 'vehiclePlateNumber', 'text', t('plateNumberPlaceholder'))}
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">{t('vehicleType')}</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{t('vehicleType')}<span className="text-red-500 ml-0.5">*</span></label>
               <select {...register('transportType')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue">
                 <option value="TRANSPORT_WITH_CARGO">{t('transportWithCargo')}</option>
@@ -187,19 +259,45 @@ export default function NewOrderPage() {
               </select>
             </div>
           </div>
-          {field(t('makeModel'), 'vehicleMakeModel', 'text', 'e.g. Volvo FH16')}
+          {field(t('makeModel'), 'vehicleMakeModel', 'text', t('makeModelPlaceholder'))}
         </div>
+
+        {/* Vehicle Documents */}
+        {transportType !== 'DRIVER_ONLY' && (
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <div>
+              <h3 className="font-semibold text-gray-800 text-sm">{t('vehicleDocsSection')}</h3>
+              <p className="text-xs text-gray-500 mt-0.5">{t('vehicleDocsNote')}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              {fileInput(t('vehicleRegistrationDoc'), 'VEHICLE_REGISTRATION', true)}
+              {fileInput(t('vehicleInsuranceDoc'), 'VEHICLE_INSURANCE', true)}
+            </div>
+          </div>
+        )}
 
         {/* Driver */}
         <div className="bg-gray-50 rounded-xl p-4 space-y-3">
           <h3 className="font-semibold text-gray-800 text-sm">{t('driverSection')}</h3>
           <div className="grid grid-cols-2 gap-3">
-            {field(t('driverFullName'), 'driverFullName', 'text', 'First and last name')}
-            {field(t('driverNationalId'), 'driverNationalId', 'text', 'ID or passport number')}
+            {field(t('driverFullName'), 'driverFullName', 'text', t('driverFullNamePlaceholder'))}
+            {field(t('driverNationalId'), 'driverNationalId', 'text', t('driverNationalIdPlaceholder'))}
           </div>
           <div className="grid grid-cols-2 gap-3">
             {field(t('driverPhone'), 'driverPhone', 'tel', '+994501234567')}
-            {field(t('driverLicense'), 'driverLicense')}
+            {field(t('driverLicense'), 'driverLicense', 'text', t('driverLicensePlaceholder'))}
+          </div>
+        </div>
+
+        {/* Driver Documents */}
+        <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+          <div>
+            <h3 className="font-semibold text-gray-800 text-sm">{t('driverDocsSection')}</h3>
+            <p className="text-xs text-gray-500 mt-0.5">{t('driverDocsNote')}</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3">
+            {fileInput(t('driverLicenseDoc'), 'DRIVER_LICENSE', true)}
+            {fileInput(t('passportDoc'), 'PASSPORT', true)}
           </div>
         </div>
 
@@ -207,24 +305,39 @@ export default function NewOrderPage() {
         <div className="bg-gray-50 rounded-xl p-4 space-y-3">
           <h3 className="font-semibold text-gray-800 text-sm">{t('cargoSection')}</h3>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">{t('cargoDescription')}</label>
-            <textarea {...register('cargoDescription')} rows={2} placeholder="Describe the cargo contents"
+            <label className="block text-xs font-medium text-gray-600 mb-1">{t('cargoDescription')}<span className="text-red-500 ml-0.5">*</span></label>
+            <textarea {...register('cargoDescription')} rows={2} placeholder={t('cargoDescriptionPlaceholder')}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue resize-none" />
             {errors.cargoDescription && <p className="text-red-500 text-xs mt-1">{errors.cargoDescription.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-3 items-center">
+          <div className="grid grid-cols-2 gap-3">
             {field(t('cargoWeight'), 'cargoWeightKg', 'number')}
-            <div className="pt-5">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={isHazardous}
-                  onChange={(e) => setValue('isHazardous', e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-pob-blue focus:ring-pob-blue" />
-                <span className="text-sm text-gray-700">{t('hazardous')}</span>
-              </label>
-              {isHazardous && <p className="text-xs text-amber-600 mt-1">{t('hazardousNote')}</p>}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{t('cargoType')}<span className="text-red-500 ml-0.5">*</span></label>
+              <select {...register('cargoType')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue">
+                <option value="GENERAL">{t('cargoTypeGeneral')}</option>
+                <option value="PERISHABLE">{t('cargoTypePerishable')}</option>
+                <option value="HAZARDOUS">{t('cargoTypeHazardous')}</option>
+              </select>
+              {errors.cargoType && <p className="text-red-500 text-xs mt-1">{errors.cargoType.message}</p>}
             </div>
           </div>
         </div>
+
+        {/* Cargo Documents */}
+        {transportType === 'TRANSPORT_WITH_CARGO' && (
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <div>
+              <h3 className="font-semibold text-gray-800 text-sm">{t('cargoDocsSection')}</h3>
+              <p className="text-xs text-gray-500 mt-0.5">{t('cargoDocsNote')}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              {fileInput(t('cmrWaybill'), 'CMR', true)}
+              {fileInput(t('cargoDeclarationDoc'), 'CARGO_DECLARATION', true)}
+            </div>
+          </div>
+        )}
 
         {/* Payment */}
         <div className="bg-gray-50 rounded-xl p-4 space-y-3">

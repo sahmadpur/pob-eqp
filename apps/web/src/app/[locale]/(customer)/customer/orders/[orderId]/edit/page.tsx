@@ -10,24 +10,38 @@ import { apiClient } from '@/lib/api-client';
 import { useAuthStore } from '@/store/auth.store';
 import { UserRole } from '@pob-eqp/shared';
 
+const DESTINATIONS = [
+  'Kuryk, Kazakhstan',
+  'Turkmenbashi, Turkmenistan',
+] as const;
+
 const schema = z.object({
   queueType:          z.enum(['PRIORITY', 'FAST_TRACK', 'REGULAR']),
   scheduledDate:      z.string().min(1, 'Select a date'),
-  destination:        z.string().min(2, 'Destination required').max(200),
+  destination:        z.enum(['Kuryk, Kazakhstan', 'Turkmenbashi, Turkmenistan']),
   vehiclePlateNumber: z.string().min(2, 'Vehicle plate required').max(20),
   transportType:      z.enum(['DRIVER_ONLY', 'TRANSPORT', 'TRANSPORT_WITH_CARGO']),
-  vehicleMakeModel:   z.string().max(100).optional(),
+  vehicleMakeModel:   z.string().min(1, 'Make & model required').max(100),
   driverFullName:     z.string().min(3, 'Full name required').max(200),
   driverNationalId:   z.string().min(4, 'National ID required').max(30),
   driverPhone:        z.string().regex(/^\+[1-9]\d{6,14}$/, 'E.164 format e.g. +994501234567'),
-  driverLicense:      z.string().max(30).optional(),
+  driverLicense:      z.string().min(2, 'Driver license number required').max(30),
   cargoDescription:   z.string().min(3, 'Describe the cargo').max(500),
   cargoWeightKg:      z.coerce.number().min(1, 'Weight required').max(1000000),
-  isHazardous:        z.boolean().default(false),
+  cargoType:          z.enum(['GENERAL', 'HAZARDOUS', 'PERISHABLE']).default('GENERAL'),
   paymentMethod:      z.enum(['BANK_TRANSFER', 'CASH', 'CARD']),
 });
 
 type FormData = z.infer<typeof schema>;
+
+interface DocFiles {
+  VEHICLE_REGISTRATION?: File;
+  VEHICLE_INSURANCE?: File;
+  DRIVER_LICENSE?: File;
+  PASSPORT?: File;
+  CMR?: File;
+  CARGO_DECLARATION?: File;
+}
 
 interface OrderDetail {
   id: string;
@@ -51,6 +65,7 @@ interface OrderDetail {
   cargoFeeAzn: number;
   queueSurchargeAzn: number;
   totalAmountAzn: number;
+  documents: { id: string; type: string; originalFileName: string }[];
 }
 
 const tomorrow = new Date();
@@ -73,7 +88,8 @@ export default function EditOrderPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
   const [checkingDate, setCheckingDate] = useState(false);
-  // Live fee preview
+  const [docFiles, setDocFiles] = useState<DocFiles>({});
+  const [existingDocs, setExistingDocs] = useState<OrderDetail['documents']>([]);
   const [fees, setFees] = useState({ base: 50, cargo: 0, queue: 0, total: 50 });
 
   const QUEUE_OPTIONS = [
@@ -84,14 +100,19 @@ export default function EditOrderPage() {
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { queueType: 'REGULAR', isHazardous: false, transportType: 'TRANSPORT_WITH_CARGO', paymentMethod: 'CASH' },
+    defaultValues: {
+      queueType: 'REGULAR',
+      cargoType: 'GENERAL',
+      transportType: 'TRANSPORT_WITH_CARGO',
+      paymentMethod: 'CASH',
+      destination: 'Kuryk, Kazakhstan',
+    },
   });
 
   const selectedQueue = watch('queueType');
-  const isHazardous = watch('isHazardous');
+  const transportType = watch('transportType');
   const cargoWeightKg = watch('cargoWeightKg');
 
-  // Recalculate fee preview whenever queue or weight changes
   useEffect(() => {
     const base = 50;
     const cargo = cargoWeightKg ? +((cargoWeightKg / 1000) * 0.05).toFixed(2) : 0;
@@ -99,23 +120,28 @@ export default function EditOrderPage() {
     setFees({ base, cargo, queue, total: base + cargo + queue });
   }, [selectedQueue, cargoWeightKg]);
 
-  // Load existing order
   useEffect(() => {
     apiClient
       .get<{ data: OrderDetail }>(`/orders/${orderId}`)
       .then((res) => {
         const o = res.data.data;
-        if (o.status !== 'PENDING_PAYMENT') {
-          setLocked(true);
-          return;
-        }
+        if (o.status !== 'PENDING_PAYMENT') { setLocked(true); return; }
+        setExistingDocs(o.documents ?? []);
         const scheduledDate = o.scheduledDate
           ? new Date(o.scheduledDate).toISOString().split('T')[0]
           : '';
+        // Map destination: if it doesn't match known values, default to first
+        const dest = DESTINATIONS.includes(o.destination as typeof DESTINATIONS[number])
+          ? (o.destination as typeof DESTINATIONS[number])
+          : DESTINATIONS[0];
+        // Map cargoType to dropdown values
+        const ct = (['GENERAL', 'HAZARDOUS', 'PERISHABLE'] as const).includes(o.cargoType as 'GENERAL' | 'HAZARDOUS' | 'PERISHABLE')
+          ? (o.cargoType as 'GENERAL' | 'HAZARDOUS' | 'PERISHABLE')
+          : 'GENERAL';
         reset({
           queueType:          (o.queueType as FormData['queueType']) ?? 'REGULAR',
           scheduledDate,
-          destination:        o.destination,
+          destination:        dest,
           vehiclePlateNumber: o.vehiclePlateNumber ?? '',
           transportType:      (o.transportType as FormData['transportType']) ?? 'TRANSPORT_WITH_CARGO',
           vehicleMakeModel:   o.vehicleMakeModel ?? '',
@@ -125,7 +151,7 @@ export default function EditOrderPage() {
           driverLicense:      o.driverLicense ?? '',
           cargoDescription:   o.cargoDescription ?? '',
           cargoWeightKg:      o.cargoWeightTonnes ? +(o.cargoWeightTonnes * 1000) : 0,
-          isHazardous:        o.cargoType === 'HAZARDOUS',
+          cargoType:          ct,
           paymentMethod:      (o.paymentMethod as FormData['paymentMethod']) ?? 'CASH',
         });
       })
@@ -139,14 +165,37 @@ export default function EditOrderPage() {
     setCheckingDate(true);
     setDateError(null);
     try {
-      const res = await apiClient.get<{ data: { covered: boolean } }>(
-        `/planning/check-date?date=${date}`,
-      );
+      const res = await apiClient.get<{ data: { covered: boolean } }>(`/planning/check-date?date=${date}`);
       if (!res.data.data.covered) setDateError(tNew('noActivePlan'));
     } catch {
       // let server validate
     } finally {
       setCheckingDate(false);
+    }
+  };
+
+  const setFile = (key: keyof DocFiles, file: File | undefined) => {
+    setDocFiles((prev) => ({ ...prev, [key]: file }));
+  };
+
+  const uploadNewDocs = async () => {
+    const entries: [keyof DocFiles, string][] = [
+      ['VEHICLE_REGISTRATION', 'VEHICLE_REGISTRATION'],
+      ['VEHICLE_INSURANCE', 'VEHICLE_INSURANCE'],
+      ['DRIVER_LICENSE', 'DRIVER_LICENSE'],
+      ['PASSPORT', 'PASSPORT'],
+      ['CMR', 'CMR'],
+      ['CARGO_DECLARATION', 'CARGO_DECLARATION'],
+    ];
+    for (const [key, docType] of entries) {
+      const file = docFiles[key];
+      if (!file) continue;
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('documentType', docType);
+      await apiClient.post(`/orders/${orderId}/documents`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
     }
   };
 
@@ -167,9 +216,10 @@ export default function EditOrderPage() {
         driverLicense:      data.driverLicense,
         cargoDescription:   data.cargoDescription,
         cargoWeightTonnes:  +(data.cargoWeightKg / 1000).toFixed(3),
-        isHazardous:        data.isHazardous,
+        cargoType:          data.cargoType,
         paymentMethod:      data.paymentMethod,
       });
+      await uploadNewDocs();
       router.push(`/${locale}/customer/orders`);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
@@ -187,6 +237,41 @@ export default function EditOrderPage() {
       {errors[name] && <p className="text-red-500 text-xs mt-1">{errors[name]?.message as string}</p>}
     </div>
   );
+
+  const fileInput = (label: string, key: keyof DocFiles, required = false) => (
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      <label className="flex items-center gap-2 cursor-pointer group">
+        <span className={`flex-1 px-3 py-2 border rounded-lg text-sm truncate ${docFiles[key] ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-300 text-gray-400'}`}>
+          {docFiles[key] ? docFiles[key]!.name : 'Choose file (PDF, JPG, PNG)'}
+        </span>
+        <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+          onChange={(e) => setFile(key, e.target.files?.[0])} />
+        <span className="px-3 py-2 bg-gray-100 group-hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors whitespace-nowrap">
+          Browse
+        </span>
+      </label>
+    </div>
+  );
+
+  const existingDocsByCategory = (types: string[]) =>
+    existingDocs.filter((d) => types.includes(d.type));
+
+  const ExistingDocsBadge = ({ types }: { types: string[] }) => {
+    const docs = existingDocsByCategory(types);
+    if (!docs.length) return null;
+    return (
+      <div className="flex flex-wrap gap-1 mt-1">
+        {docs.map((d) => (
+          <span key={d.id} className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
+            {d.type.replace(/_/g, ' ')} — {d.originalFileName}
+          </span>
+        ))}
+      </div>
+    );
+  };
 
   if (loadError) return (
     <div className="max-w-2xl mx-auto">
@@ -244,7 +329,13 @@ export default function EditOrderPage() {
               {dateError && <p className="text-red-500 text-xs mt-1">{dateError}</p>}
               {errors.scheduledDate && !dateError && <p className="text-red-500 text-xs mt-1">{errors.scheduledDate.message}</p>}
             </div>
-            {field(tNew('destination'), 'destination', 'text', 'e.g. Terminal 3, Baku')}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{tNew('destination')} *</label>
+              <select {...register('destination')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue">
+                {DESTINATIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -263,8 +354,21 @@ export default function EditOrderPage() {
               </select>
             </div>
           </div>
-          {field(tNew('makeModel'), 'vehicleMakeModel', 'text', 'e.g. Volvo FH16')}
+          {field(`${tNew('makeModel')} *`, 'vehicleMakeModel', 'text', 'e.g. Volvo FH16')}
         </div>
+
+        {/* Vehicle Documents */}
+        {transportType !== 'DRIVER_ONLY' && (
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <div>
+              <h3 className="font-semibold text-gray-800 text-sm">Vehicle Documents</h3>
+              <ExistingDocsBadge types={['VEHICLE_REGISTRATION', 'VEHICLE_INSURANCE']} />
+              <p className="text-xs text-gray-500 mt-1">Upload new documents to replace or supplement existing ones</p>
+            </div>
+            {fileInput('Vehicle Registration Certificate', 'VEHICLE_REGISTRATION')}
+            {fileInput('Vehicle Insurance', 'VEHICLE_INSURANCE')}
+          </div>
+        )}
 
         {/* Driver */}
         <div className="bg-gray-50 rounded-xl p-4 space-y-3">
@@ -275,8 +379,19 @@ export default function EditOrderPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             {field(tNew('driverPhone'), 'driverPhone', 'tel', '+994501234567')}
-            {field(tNew('driverLicense'), 'driverLicense')}
+            {field(`${tNew('driverLicense')} *`, 'driverLicense', 'text', 'e.g. AZ123456')}
           </div>
+        </div>
+
+        {/* Driver Documents */}
+        <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+          <div>
+            <h3 className="font-semibold text-gray-800 text-sm">Driver Documents</h3>
+            <ExistingDocsBadge types={['DRIVER_LICENSE', 'PASSPORT']} />
+            <p className="text-xs text-gray-500 mt-1">Upload new documents to supplement existing ones</p>
+          </div>
+          {fileInput("Driver's License", 'DRIVER_LICENSE')}
+          {fileInput('Passport', 'PASSPORT')}
         </div>
 
         {/* Cargo */}
@@ -288,19 +403,32 @@ export default function EditOrderPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue resize-none" />
             {errors.cargoDescription && <p className="text-red-500 text-xs mt-1">{errors.cargoDescription.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-3 items-center">
+          <div className="grid grid-cols-2 gap-3">
             {field(tNew('cargoWeight'), 'cargoWeightKg', 'number')}
-            <div className="pt-5">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={isHazardous}
-                  onChange={(e) => setValue('isHazardous', e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-pob-blue focus:ring-pob-blue" />
-                <span className="text-sm text-gray-700">{tNew('hazardous')}</span>
-              </label>
-              {isHazardous && <p className="text-xs text-amber-600 mt-1">{tNew('hazardousNote')}</p>}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Cargo Type</label>
+              <select {...register('cargoType')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue">
+                <option value="GENERAL">General</option>
+                <option value="PERISHABLE">Perishable</option>
+                <option value="HAZARDOUS">Hazardous</option>
+              </select>
             </div>
           </div>
         </div>
+
+        {/* Cargo Documents */}
+        {transportType === 'TRANSPORT_WITH_CARGO' && (
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <div>
+              <h3 className="font-semibold text-gray-800 text-sm">Cargo Documents</h3>
+              <ExistingDocsBadge types={['CMR', 'CARGO_DECLARATION']} />
+              <p className="text-xs text-gray-500 mt-1">Upload new cargo documents</p>
+            </div>
+            {fileInput('CMR Waybill', 'CMR')}
+            {fileInput('Cargo Declaration', 'CARGO_DECLARATION')}
+          </div>
+        )}
 
         {/* Payment */}
         <div className="bg-gray-50 rounded-xl p-4 space-y-3">

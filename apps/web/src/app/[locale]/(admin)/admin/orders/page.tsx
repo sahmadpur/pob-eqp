@@ -3,7 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
+import dynamic from 'next/dynamic';
 import { apiClient } from '@/lib/api-client';
+
+const QrScannerModal = dynamic(() => import('@/components/QrScannerModal'), { ssr: false });
 
 interface Payment {
   id: string;
@@ -15,6 +18,9 @@ interface Payment {
 interface OrderUser {
   email: string;
   phone: string;
+  role: string;
+  individualProfile: { firstName: string; lastName: string } | null;
+  legalProfile: { companyName: string; contactPersonName: string } | null;
 }
 
 interface Order {
@@ -65,6 +71,7 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<typeof FILTERS[number]>('filterAll');
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -78,14 +85,35 @@ export default function AdminOrdersPage() {
   }, [activeFilter]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
-        <p className="text-gray-500 mt-1 text-sm">{t('subtitle')}</p>
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
+          <p className="text-gray-500 mt-1 text-sm">{t('subtitle')}</p>
+        </div>
+        <button
+          onClick={() => setShowScanner(true)}
+          className="shrink-0 flex items-center gap-2 px-4 py-2 bg-pob-blue text-white text-sm font-medium rounded-xl hover:bg-pob-blue-light transition-colors"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" />
+            <rect x="7" y="7" width="10" height="10" rx="1" />
+          </svg>
+          Scan QR
+        </button>
       </div>
 
+      {showScanner && (
+        <QrScannerModal
+          onClose={() => setShowScanner(false)}
+          onScan={(orderId) => {
+            window.location.href = `/${locale}/admin/orders/${orderId}`;
+          }}
+        />
+      )}
+
       {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         {FILTERS.map((f) => (
           <button
             key={f}
@@ -107,11 +135,13 @@ export default function AdminOrdersPage() {
 
       {!loading && !error && (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[1100px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colOrder')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colCustomer')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colCustomerType')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colQueueType')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colScheduled')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colStatus')}</th>
@@ -124,7 +154,7 @@ export default function AdminOrdersPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {orders.length === 0 && (
-                <tr><td colSpan={10} className="text-center py-12 text-gray-400">—</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-gray-400">—</td></tr>
               )}
               {orders.map((order) => {
                 const payment = order.payments[0];
@@ -132,7 +162,20 @@ export default function AdminOrdersPage() {
                 return (
                   <tr key={order.id} className={`hover:bg-gray-50 transition-colors ${needsConfirm ? 'bg-yellow-50' : ''}`}>
                     <td className="px-4 py-3 font-mono font-medium text-pob-blue">{order.orderId}</td>
-                    <td className="px-4 py-3 text-gray-700 text-xs">{order.user.email}</td>
+                    <td className="px-4 py-3 text-gray-700 text-xs">
+                      {order.user.individualProfile
+                        ? `${order.user.individualProfile.firstName} ${order.user.individualProfile.lastName}`
+                        : order.user.legalProfile
+                        ? order.user.legalProfile.companyName
+                        : order.user.email}
+                    </td>
+                    <td className="px-4 py-3">
+                      {order.user.role === 'CUSTOMER_INDIVIDUAL' ? (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">{t('typeIndividual')}</span>
+                      ) : order.user.role === 'CUSTOMER_LEGAL' ? (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700">{t('typeLegal')}</span>
+                      ) : '—'}
+                    </td>
                     <td className="px-4 py-3 text-gray-700 capitalize">{order.queueType ? order.queueType.toLowerCase().replace(/_/g, ' ') : '—'}</td>
                     <td className="px-4 py-3 text-gray-700">{order.scheduledDate ? new Date(order.scheduledDate).toLocaleDateString() : '—'}</td>
                     <td className="px-4 py-3">
@@ -163,6 +206,7 @@ export default function AdminOrdersPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

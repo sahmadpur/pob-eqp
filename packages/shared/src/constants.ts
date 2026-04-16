@@ -37,7 +37,7 @@ export const FILE_LIMITS = {
   MAX_SIZE_BYTES: 10 * 1024 * 1024,     // 10 MB
   DRIVER_LICENSE_MAX_BYTES: 5 * 1024 * 1024, // 5 MB
   PROFILE_PHOTO_MAX_BYTES: 5 * 1024 * 1024,
-  MAX_ADDITIONAL_DOCS: 5,
+  MAX_ADDITIONAL_DOCS: 10,
   ACCEPTED_DOC_MIMES: ['application/pdf', 'image/jpeg', 'image/png'],
   ACCEPTED_IMAGE_MIMES: ['image/jpeg', 'image/png'],
 } as const;

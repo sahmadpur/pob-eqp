@@ -1,17 +1,26 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request, Query, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Request, Query, Delete, UseInterceptors, UploadedFile, BadRequestException, Res } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody, ApiProduces } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { Response } from 'express';
 import { OrdersService } from './orders.service';
+import { QrService } from './qr.service';
+import { DocumentService } from '../registration/document.service';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { RolesGuard } from '../../guards/roles.guard';
 import { Roles } from '../../decorators/roles.decorator';
-import { UserRole } from '@pob-eqp/shared';
+import { UserRole, DocumentType } from '@pob-eqp/shared';
 
 @ApiTags('orders')
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('access-token')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly qrService: QrService,
+    private readonly documentService: DocumentService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new order' })
@@ -40,6 +49,41 @@ export class OrdersController {
   }
 
   // Static routes MUST come before dynamic :orderId to avoid NestJS shadowing them
+
+  @Post(':orderId/documents')
+  @ApiOperation({ summary: 'Upload a document for an order (vehicle, driver, or cargo)' })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file', 'documentType'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        documentType: { type: 'string', enum: Object.values(DocumentType) },
+      },
+    },
+  })
+  async uploadOrderDocument(
+    @Param('orderId') orderId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { documentType: string },
+    @Request() req: { user: { id: string } },
+  ) {
+    if (!file) throw new BadRequestException('No file provided');
+    const order = await this.ordersService.findByOrderId(orderId);
+    const document = await this.documentService.saveUploadedFile({
+      uploadedById: req.user.id,
+      documentType: body.documentType as DocumentType,
+      contentType: file.mimetype,
+      fileSize: file.size,
+      originalFileName: file.originalname,
+      fileBuffer: file.buffer,
+      orderId: order.id,
+    });
+    return document;
+  }
+
   @Get('availability/:planId/:queueTypeId')
   @ApiOperation({ summary: 'Get daily slot availability' })
   async getAvailability(
@@ -48,6 +92,23 @@ export class OrdersController {
     @Query('date') date: string,
   ) {
     return this.ordersService.getDailyAvailability(planId, queueTypeId, date);
+  }
+
+  @Get(':orderId/qr')
+  @ApiOperation({ summary: 'Get QR code PNG for an order (generates on demand if missing)' })
+  @ApiProduces('image/png')
+  async getOrderQr(
+    @Param('orderId') orderId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const fileKey = await this.ordersService.getOrGenerateQrKey(orderId);
+    const fullPath = this.qrService.getFullPath(fileKey);
+    res.set({
+      'Content-Type': 'image/png',
+      'Content-Disposition': `inline; filename="${orderId}-qr.png"`,
+      'Cache-Control': 'public, max-age=86400',
+    });
+    res.sendFile(fullPath);
   }
 
   @Get(':orderId')

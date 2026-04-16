@@ -7,8 +7,9 @@ import { apiClient } from '@/lib/api-client';
 
 interface Document {
   id: string;
-  documentType: string;
-  originalName: string;
+  type: string;
+  originalFileName: string;
+  s3Key: string;
 }
 
 interface Payment {
@@ -42,6 +43,7 @@ interface OrderDetail {
   id: string;
   orderId: string;
   status: string;
+  qrCodeS3Key: string | null;
   queueType: string | null;
   scheduledDate: string | null;
   destination: string;
@@ -92,6 +94,7 @@ export default function CustomerOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [qrBlobUrl, setQrBlobUrl] = useState<string | null>(null);
 
   const [clarifyNote, setClarifyNote] = useState('');
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
@@ -106,6 +109,19 @@ export default function CustomerOrderDetailPage() {
   };
 
   useEffect(() => { loadOrder(); }, [orderId]);
+
+  useEffect(() => {
+    if (!order) return;
+    let url: string;
+    apiClient
+      .get<Blob>(`/orders/${order.orderId}/qr`, { responseType: 'blob' })
+      .then((res) => {
+        url = URL.createObjectURL(res.data);
+        setQrBlobUrl(url);
+      })
+      .catch(() => { /* QR unavailable — section stays hidden */ });
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [order?.orderId]);
 
   const handleRespond = async () => {
     if (!order || !clarifyNote.trim()) return;
@@ -215,8 +231,8 @@ export default function CustomerOrderDetailPage() {
                         onChange={() => toggleDoc(doc.id)}
                         className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-400"
                       />
-                      <span className="text-xs text-gray-500 uppercase">{doc.documentType.replace(/_/g, ' ')}</span>
-                      <span>{doc.originalName}</span>
+                      <span className="text-xs text-gray-500 uppercase">{doc.type.replace(/_/g, ' ')}</span>
+                      <span>{doc.originalFileName}</span>
                     </label>
                   ))}
                 </div>
@@ -230,6 +246,35 @@ export default function CustomerOrderDetailPage() {
             >
               {submitting ? t('clarifySubmitting') : t('clarifySubmitBtn')}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code */}
+      {qrBlobUrl && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col sm:flex-row items-center gap-6">
+          <div className="shrink-0">
+            <img
+              src={qrBlobUrl}
+              alt={`QR code for order ${order.orderId}`}
+              width={160}
+              height={160}
+              className="rounded-lg border border-gray-100"
+            />
+          </div>
+          <div className="flex-1 space-y-1 text-center sm:text-left">
+            <p className="font-semibold text-gray-800 text-sm">Order QR Code</p>
+            <p className="text-xs text-gray-500">
+              Scan this code at any checkpoint to pull up your order. Present it at the gate, border, and terminal.
+            </p>
+            <p className="text-xs font-mono text-gray-400 mt-1">{order.orderId}</p>
+            <a
+              href={qrBlobUrl}
+              download={`${order.orderId}-qr.png`}
+              className="inline-block mt-3 px-3 py-1.5 text-xs font-medium bg-pob-blue text-white rounded-lg hover:bg-pob-blue-light transition-colors"
+            >
+              Download QR
+            </a>
           </div>
         </div>
       )}
@@ -281,6 +326,30 @@ export default function CustomerOrderDetailPage() {
           </div>
         )}
       </div>
+
+      {order.documents.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h2 className="font-semibold text-gray-800 text-sm mb-4">Uploaded Documents</h2>
+          <div className="divide-y divide-gray-100">
+            {order.documents.map((doc) => (
+              <div key={doc.id} className="flex items-center justify-between py-2 text-sm">
+                <div>
+                  <span className="text-xs font-medium text-gray-500 uppercase">{doc.type.replace(/_/g, ' ')}</span>
+                  <p className="text-gray-800">{doc.originalFileName}</p>
+                </div>
+                <a
+                  href={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') ?? 'http://localhost:3001'}/api/v1/files/${doc.s3Key}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+                >
+                  View
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {order.timeline.length > 0 && (
         <div className="bg-white border border-gray-200 rounded-xl p-5">

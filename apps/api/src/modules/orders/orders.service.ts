@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { OrderStatus, TransportType, CargoType, PaymentMethod, UserRole } from '@pob-eqp/shared';
 import { ORDER_CONSTANTS } from '@pob-eqp/shared';
+import { QrService } from './qr.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly qrService: QrService,
+  ) {}
 
   private generateOrderId(): string {
     const timestamp = Date.now().toString(36).toUpperCase();
@@ -29,7 +33,6 @@ export class OrdersService {
     cargoType?: CargoType;
     cargoDescription?: string;
     cargoWeightTonnes?: number;
-    isHazardous?: boolean;
     paymentMethod: PaymentMethod;
     // Optional — only provided when a planning slot is pre-selected
     planId?: string;
@@ -66,12 +69,9 @@ export class OrdersService {
     const queueSurchargeAzn = dto.queueType === 'PRIORITY' ? 30 : dto.queueType === 'FAST_TRACK' ? 15 : 0;
     const totalAmountAzn = baseFeeAzn + cargoFeeAzn + queueSurchargeAzn;
 
-    // Hazardous cargo → CARGO_DANGEROUS type
-    const cargoType: CargoType | undefined = dto.isHazardous
-      ? CargoType.HAZARDOUS
-      : (dto.cargoType ?? undefined);
+    const cargoType: CargoType | undefined = dto.cargoType ?? undefined;
 
-    return this.prisma.order.create({
+    const order = await this.prisma.order.create({
       data: {
         orderId,
         userId: dto.userId,
@@ -98,6 +98,35 @@ export class OrdersService {
         totalAmountAzn,
       },
     });
+
+    // Generate QR code immediately after creation. Failure must not block the order.
+    try {
+      const qrCodeS3Key = await this.qrService.generateAndSave(order.orderId);
+      return await this.prisma.order.update({
+        where: { id: order.id },
+        data: { qrCodeS3Key, qrCodeGeneratedAt: new Date() },
+      });
+    } catch {
+      return order;
+    }
+  }
+
+  async getOrGenerateQrKey(orderId: string): Promise<string> {
+    const order = await this.prisma.order.findUnique({ where: { orderId } });
+    if (!order) throw new NotFoundException(`Order ${orderId} not found`);
+
+    // Use cached key if the file still exists on disk
+    if (order.qrCodeS3Key && this.qrService.fileExists(order.qrCodeS3Key)) {
+      return order.qrCodeS3Key;
+    }
+
+    // Regenerate (handles first-time and missing-file cases)
+    const qrCodeS3Key = await this.qrService.generateAndSave(order.orderId);
+    await this.prisma.order.update({
+      where: { id: order.id },
+      data: { qrCodeS3Key, qrCodeGeneratedAt: new Date() },
+    });
+    return qrCodeS3Key;
   }
 
   async findByOrderId(orderId: string) {
@@ -152,7 +181,16 @@ export class OrdersService {
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        user: { select: { id: true, email: true, phone: true } },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            phone: true,
+            role: true,
+            individualProfile: { select: { firstName: true, lastName: true } },
+            legalProfile: { select: { companyName: true, contactPersonName: true } },
+          },
+        },
         planQueueType: true,
         payments: true,
       },
@@ -195,7 +233,6 @@ export class OrdersService {
       cargoType?: CargoType;
       cargoDescription?: string;
       cargoWeightTonnes?: number;
-      isHazardous?: boolean;
       paymentMethod?: PaymentMethod;
     },
   ) {
@@ -225,11 +262,9 @@ export class OrdersService {
     const queueSurchargeAzn = newQueueType === 'PRIORITY' ? 30 : newQueueType === 'FAST_TRACK' ? 15 : 0;
     const totalAmountAzn = baseFeeAzn + cargoFeeAzn + queueSurchargeAzn;
 
-    const cargoType: CargoType | undefined | null = dto.isHazardous
-      ? CargoType.HAZARDOUS
-      : dto.cargoType !== undefined
-        ? (dto.cargoType ?? null)
-        : undefined;
+    const cargoType: CargoType | undefined | null = dto.cargoType !== undefined
+      ? (dto.cargoType ?? null)
+      : undefined;
 
     return this.prisma.order.update({
       where: { orderId },

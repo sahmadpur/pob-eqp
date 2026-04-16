@@ -36,6 +36,14 @@ interface OrderVerification {
   verifiedAt: string | null;
 }
 
+interface TimelineEvent {
+  id: string;
+  actor: string;
+  event: string;
+  note: string | null;
+  createdAt: string;
+}
+
 interface OrderDetail {
   id: string;
   orderId: string;
@@ -63,6 +71,8 @@ interface OrderDetail {
   payments: Payment[];
   verification: OrderVerification | null;
   clarificationRounds: ClarificationRound[];
+  documents: { id: string; type: string; originalFileName: string; s3Key: string }[];
+  timeline: TimelineEvent[];
 }
 
 export default function FinanceOrderDetailPage() {
@@ -461,6 +471,66 @@ export default function FinanceOrderDetailPage() {
           {payment?.failureReason && row('Rejection reason', payment.failureReason)}
         </div>
       </div>
+
+      {/* Documents */}
+      {order.documents && order.documents.length > 0 && (() => {
+        const API_BASE = (process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') ?? 'http://localhost:3001') + '/api/v1/files/';
+        const groups: Record<string, typeof order.documents> = {
+          'Vehicle Documents': order.documents.filter((d) => ['VEHICLE_REGISTRATION', 'VEHICLE_INSURANCE'].includes(d.type)),
+          'Driver Documents': order.documents.filter((d) => ['DRIVER_LICENSE', 'PASSPORT', 'NATIONAL_ID'].includes(d.type)),
+          'Cargo Documents': order.documents.filter((d) => ['CMR', 'CARGO_DECLARATION'].includes(d.type)),
+          'Other Documents': order.documents.filter((d) => !['VEHICLE_REGISTRATION', 'VEHICLE_INSURANCE', 'DRIVER_LICENSE', 'PASSPORT', 'NATIONAL_ID', 'CMR', 'CARGO_DECLARATION'].includes(d.type)),
+        };
+        return (
+          <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+            <h2 className="font-semibold text-gray-800 text-sm">Documents</h2>
+            {Object.entries(groups).map(([groupName, docs]) => docs.length === 0 ? null : (
+              <div key={groupName}>
+                <p className="text-xs font-medium text-gray-500 uppercase mb-2">{groupName}</p>
+                <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
+                  {docs.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between px-3 py-2.5">
+                      <div>
+                        <p className="text-xs text-gray-500 uppercase">{doc.type.replace(/_/g, ' ')}</p>
+                        <p className="text-sm text-gray-800">{doc.originalFileName}</p>
+                      </div>
+                      <a
+                        href={`${API_BASE}${doc.s3Key}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs px-2.5 py-1 bg-pob-blue text-white hover:bg-pob-blue-light rounded-md transition-colors whitespace-nowrap"
+                      >
+                        View
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Timeline */}
+      {order.timeline && order.timeline.length > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <h2 className="font-semibold text-gray-800 text-sm mb-4">Order History</h2>
+          <ol className="relative border-l border-gray-200 ml-2 space-y-5">
+            {order.timeline.map((ev) => (
+              <li key={ev.id} className="ml-4">
+                <div className="absolute -left-1.5 w-3 h-3 rounded-full bg-pob-blue border-2 border-white" />
+                <p className="text-sm font-medium text-gray-800">{ev.event.replace(/_/g, ' ')}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  <span className="font-medium">{ev.actor}</span>
+                  {' · '}
+                  {new Date(ev.createdAt).toLocaleString()}
+                </p>
+                {ev.note && <p className="text-xs text-gray-500 mt-1 italic">{ev.note}</p>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

@@ -72,7 +72,7 @@ export default function FinancePendingRegistrationsPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -126,27 +126,16 @@ export default function FinancePendingRegistrationsPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colCompany')}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colVoen')}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colContact')}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colDocs')}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colWaiting')}
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  {t('colCycle')}
-                </th>
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[800px]">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colCompany')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colVoen')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colContact')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colDocs')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colWaiting')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colCycle')}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -213,6 +202,7 @@ export default function FinancePendingRegistrationsPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
