@@ -11,7 +11,7 @@ interface Order {
   status: string;
   queueType: string | null;
   createdAt: string;
-  scheduledDate?: string;
+  departureDate?: string;
   vehiclePlateNumber?: string;
 }
 
@@ -114,7 +114,8 @@ export default function MyOrdersPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colOrder')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colVehicle')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colQueueType')}</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colScheduled')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colDeparture')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colArrival')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colStatus')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colCreated')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colActions')}</th>
@@ -127,7 +128,12 @@ export default function MyOrdersPage() {
                   <td className="px-4 py-3 text-gray-700">{order.vehiclePlateNumber ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-700 capitalize">{order.queueType ? order.queueType.toLowerCase().replace(/_/g, ' ') : '—'}</td>
                   <td className="px-4 py-3 text-gray-700">
-                    {order.scheduledDate ? new Date(order.scheduledDate).toLocaleDateString() : '—'}
+                    {order.departureDate ? new Date(order.departureDate).toLocaleDateString() : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {order.departureDate
+                      ? (d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1).toLocaleString())(new Date(order.departureDate))
+                      : '—'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5 flex-wrap">

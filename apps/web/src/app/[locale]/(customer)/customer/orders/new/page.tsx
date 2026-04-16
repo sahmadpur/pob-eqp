@@ -17,7 +17,7 @@ const DESTINATIONS = [
 
 const schema = z.object({
   queueType:          z.enum(['PRIORITY', 'FAST_TRACK', 'REGULAR']),
-  scheduledDate:      z.string().min(1, 'Select a date'),
+  departureDate:      z.string().min(1, 'Select a date'),
   destination:        z.enum(['Kuryk, Kazakhstan', 'Turkmenbashi, Turkmenistan']),
   vehiclePlateNumber: z.string().min(2, 'Vehicle plate required').max(20),
   transportType:      z.enum(['DRIVER_ONLY', 'TRANSPORT', 'TRANSPORT_WITH_CARGO']),
@@ -83,7 +83,7 @@ export default function NewOrderPage() {
 
   const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const date = e.target.value;
-    setValue('scheduledDate', date);
+    setValue('departureDate', date);
     if (!date) { setDateError(null); return; }
     setCheckingDate(true);
     setDateError(null);
@@ -142,7 +142,7 @@ export default function NewOrderPage() {
       const res = await apiClient.post<{ data: { id: string; orderId: string } }>('/orders', {
         destination:        data.destination,
         queueType:          data.queueType,
-        scheduledDate:      new Date(data.scheduledDate).toISOString(),
+        departureDate:      new Date(data.departureDate).toISOString(),
         vehiclePlateNumber: data.vehiclePlateNumber,
         transportType:      data.transportType,
         vehicleMakeModel:   data.vehicleMakeModel,
@@ -200,9 +200,6 @@ export default function NewOrderPage() {
         <p className="text-gray-500 text-sm mt-1">{t('subtitle')}</p>
       </div>
 
-      {apiError && <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{apiError}</div>}
-      {docErrors && <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{docErrors}</div>}
-
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
 
         {/* Queue Type */}
@@ -226,12 +223,12 @@ export default function NewOrderPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">{t('date')}<span className="text-red-500 ml-0.5">*</span></label>
-              <input type="date" min={minDate} {...register('scheduledDate')}
+              <input type="date" min={minDate} {...register('departureDate')}
                 onChange={handleDateChange}
                 className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue ${dateError ? 'border-red-400' : 'border-gray-300'}`} />
               {checkingDate && <p className="text-gray-400 text-xs mt-1">{t('checkingDate')}</p>}
               {dateError && <p className="text-red-500 text-xs mt-1">{dateError}</p>}
-              {errors.scheduledDate && !dateError && <p className="text-red-500 text-xs mt-1">{errors.scheduledDate.message}</p>}
+              {errors.departureDate && !dateError && <p className="text-red-500 text-xs mt-1">{errors.departureDate.message}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">{t('destination')}<span className="text-red-500 ml-0.5">*</span></label>
@@ -356,6 +353,9 @@ export default function NewOrderPage() {
             ))}
           </div>
         </div>
+
+        {apiError && <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{apiError}</div>}
+        {docErrors && <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">{docErrors}</div>}
 
         <button type="submit" disabled={submitting || !!dateError || checkingDate}
           className="w-full py-3 bg-pob-blue text-white font-semibold rounded-xl hover:bg-pob-blue-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors">

@@ -566,6 +566,9 @@ model Order {
   slotReservationId     String?
   slotReservedUntil     DateTime?
 
+  // Schedule
+  departureDate         DateTime?
+
   // Shipment
   manifestId            String?
   gatePassIssuedAt      DateTime?

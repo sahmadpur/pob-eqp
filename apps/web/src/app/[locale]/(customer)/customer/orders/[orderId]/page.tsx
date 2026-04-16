@@ -45,7 +45,7 @@ interface OrderDetail {
   status: string;
   qrCodeS3Key: string | null;
   queueType: string | null;
-  scheduledDate: string | null;
+  departureDate: string | null;
   destination: string;
   driverFullName: string;
   driverNationalId: string;
@@ -293,8 +293,15 @@ export default function CustomerOrderDetailPage() {
           {row(t('plate'), order.vehiclePlateNumber)}
           {row(t('vehicleType'), order.transportType.replace(/_/g, ' '))}
           {row(t('makeModel'), order.vehicleMakeModel)}
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-2">
+          <h2 className="font-semibold text-gray-800 text-sm mb-3">{t('transferSection')}</h2>
           {row(t('destination'), order.destination)}
-          {row(t('scheduledDate'), order.scheduledDate ? new Date(order.scheduledDate).toLocaleDateString() : null)}
+          {row(t('departureDate'), order.departureDate ? new Date(order.departureDate).toLocaleDateString() : null)}
+          {row(t('arrivalDate'), order.departureDate
+            ? (d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1).toLocaleString())(new Date(order.departureDate))
+            : null)}
         </div>
 
         {(order.cargoType || order.cargoWeightTonnes || order.cargoDescription) && (

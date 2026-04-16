@@ -28,7 +28,7 @@ interface OrderDetail {
   orderId: string;
   status: string;
   queueType: string | null;
-  scheduledDate: string | null;
+  departureDate: string | null;
   destination: string;
   vehiclePlateNumber: string | null;
   vehicleMakeModel: string | null;
@@ -239,9 +239,17 @@ export default function AdminOrderDetailPage() {
           {row('Plate', order.vehiclePlateNumber)}
           {row('Type', order.transportType.replace(/_/g, ' '))}
           {row('Make/Model', order.vehicleMakeModel)}
-          {row('Destination', order.destination)}
-          {row('Scheduled', order.scheduledDate ? new Date(order.scheduledDate).toLocaleDateString() : null)}
           {row('Queue', order.queueType?.replace(/_/g, ' ') ?? null)}
+        </div>
+
+        {/* Transfer */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-2">
+          <h2 className="font-semibold text-gray-800 text-sm mb-3">{t('transferSection')}</h2>
+          {row('Destination', order.destination)}
+          {row(t('departureDate'), order.departureDate ? new Date(order.departureDate).toLocaleDateString() : null)}
+          {row(t('arrivalDate'), order.departureDate
+            ? (d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1).toLocaleString())(new Date(order.departureDate))
+            : null)}
         </div>
 
         {/* Cargo */}

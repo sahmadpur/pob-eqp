@@ -29,7 +29,7 @@ interface Order {
   status: string;
   queueType: string | null;
   createdAt: string;
-  scheduledDate: string | null;
+  departureDate: string | null;
   paymentMethod: string;
   totalAmountAzn: number;
   user: OrderUser;
@@ -143,7 +143,8 @@ export default function FinanceOrdersPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colCustomer')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colCustomerType')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colQueueType')}</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colScheduled')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colDeparture')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colArrival')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colStatus')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colPaymentMethod')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('colPaymentStatus')}</th>
@@ -154,7 +155,7 @@ export default function FinanceOrdersPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {orders.length === 0 && (
-                <tr><td colSpan={11} className="text-center py-12 text-gray-400">—</td></tr>
+                <tr><td colSpan={12} className="text-center py-12 text-gray-400">—</td></tr>
               )}
               {orders.map((order) => {
                 const payment = order.payments[0];
@@ -177,7 +178,12 @@ export default function FinanceOrdersPage() {
                       ) : '—'}
                     </td>
                     <td className="px-4 py-3 text-gray-700 capitalize">{order.queueType ? order.queueType.toLowerCase().replace(/_/g, ' ') : '—'}</td>
-                    <td className="px-4 py-3 text-gray-700">{order.scheduledDate ? new Date(order.scheduledDate).toLocaleDateString() : '—'}</td>
+                    <td className="px-4 py-3 text-gray-700">{order.departureDate ? new Date(order.departureDate).toLocaleDateString() : '—'}</td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {order.departureDate
+                        ? (d => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1).toLocaleString())(new Date(order.departureDate))
+                        : '—'}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-600'}`}>
                         {order.status.replace(/_/g, ' ')}

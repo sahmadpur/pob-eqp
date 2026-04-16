@@ -17,7 +17,7 @@ const DESTINATIONS = [
 
 const schema = z.object({
   queueType:          z.enum(['PRIORITY', 'FAST_TRACK', 'REGULAR']),
-  scheduledDate:      z.string().min(1, 'Select a date'),
+  departureDate:      z.string().min(1, 'Select a date'),
   destination:        z.enum(['Kuryk, Kazakhstan', 'Turkmenbashi, Turkmenistan']),
   vehiclePlateNumber: z.string().min(2, 'Vehicle plate required').max(20),
   transportType:      z.enum(['DRIVER_ONLY', 'TRANSPORT', 'TRANSPORT_WITH_CARGO']),
@@ -48,7 +48,7 @@ interface OrderDetail {
   orderId: string;
   status: string;
   queueType: string | null;
-  scheduledDate: string | null;
+  departureDate: string | null;
   destination: string;
   vehiclePlateNumber: string | null;
   vehicleMakeModel: string | null;
@@ -127,8 +127,8 @@ export default function EditOrderPage() {
         const o = res.data.data;
         if (o.status !== 'PENDING_PAYMENT') { setLocked(true); return; }
         setExistingDocs(o.documents ?? []);
-        const scheduledDate = o.scheduledDate
-          ? new Date(o.scheduledDate).toISOString().split('T')[0]
+        const departureDate = o.departureDate
+          ? new Date(o.departureDate).toISOString().split('T')[0]
           : '';
         // Map destination: if it doesn't match known values, default to first
         const dest = DESTINATIONS.includes(o.destination as typeof DESTINATIONS[number])
@@ -140,7 +140,7 @@ export default function EditOrderPage() {
           : 'GENERAL';
         reset({
           queueType:          (o.queueType as FormData['queueType']) ?? 'REGULAR',
-          scheduledDate,
+          departureDate,
           destination:        dest,
           vehiclePlateNumber: o.vehiclePlateNumber ?? '',
           transportType:      (o.transportType as FormData['transportType']) ?? 'TRANSPORT_WITH_CARGO',
@@ -160,7 +160,7 @@ export default function EditOrderPage() {
 
   const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const date = e.target.value;
-    setValue('scheduledDate', date);
+    setValue('departureDate', date);
     if (!date) { setDateError(null); return; }
     setCheckingDate(true);
     setDateError(null);
@@ -206,7 +206,7 @@ export default function EditOrderPage() {
       await apiClient.patch(`/orders/${orderId}`, {
         destination:        data.destination,
         queueType:          data.queueType,
-        scheduledDate:      new Date(data.scheduledDate).toISOString(),
+        departureDate:      new Date(data.departureDate).toISOString(),
         vehiclePlateNumber: data.vehiclePlateNumber,
         transportType:      data.transportType,
         vehicleMakeModel:   data.vehicleMakeModel,
@@ -322,12 +322,12 @@ export default function EditOrderPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">{tNew('date')}</label>
-              <input type="date" min={minDate} {...register('scheduledDate')}
+              <input type="date" min={minDate} {...register('departureDate')}
                 onChange={handleDateChange}
                 className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-pob-blue ${dateError ? 'border-red-400' : 'border-gray-300'}`} />
               {checkingDate && <p className="text-gray-400 text-xs mt-1">{tNew('checkingDate')}</p>}
               {dateError && <p className="text-red-500 text-xs mt-1">{dateError}</p>}
-              {errors.scheduledDate && !dateError && <p className="text-red-500 text-xs mt-1">{errors.scheduledDate.message}</p>}
+              {errors.departureDate && !dateError && <p className="text-red-500 text-xs mt-1">{errors.departureDate.message}</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">{tNew('destination')} *</label>

@@ -22,7 +22,7 @@ export class OrdersService {
     userRole?: string;
     destination: string;
     queueType?: string;
-    scheduledDate?: string;
+    departureDate?: string;
     driverFullName: string;
     driverNationalId: string;
     driverPhone: string;
@@ -45,8 +45,8 @@ export class OrdersService {
     }
 
     // Validate that an ACTIVE plan covers the requested date
-    if (dto.scheduledDate) {
-      const date = new Date(dto.scheduledDate);
+    if (dto.departureDate) {
+      const date = new Date(dto.departureDate);
       const activePlan = await this.prisma.plan.findFirst({
         where: {
           status: 'ACTIVE',
@@ -96,6 +96,7 @@ export class OrdersService {
         queueSurchargeAzn,
         cargoFeeAzn,
         totalAmountAzn,
+        ...(dto.departureDate ? { departureDate: new Date(dto.departureDate) } : {}),
       },
     });
 
@@ -222,7 +223,7 @@ export class OrdersService {
     dto: {
       destination?: string;
       queueType?: string;
-      scheduledDate?: string;
+      departureDate?: string;
       driverFullName?: string;
       driverNationalId?: string;
       driverPhone?: string;
@@ -244,8 +245,8 @@ export class OrdersService {
     }
 
     // Re-validate date coverage if date changed
-    if (dto.scheduledDate) {
-      const date = new Date(dto.scheduledDate);
+    if (dto.departureDate) {
+      const date = new Date(dto.departureDate);
       const activePlan = await this.prisma.plan.findFirst({
         where: { status: 'ACTIVE', startDate: { lte: date }, endDate: { gte: date } },
       });
@@ -271,7 +272,7 @@ export class OrdersService {
       data: {
         ...(dto.destination !== undefined ? { destination: dto.destination } : {}),
         ...(dto.queueType !== undefined ? { queueType: dto.queueType } : {}),
-        ...(dto.scheduledDate !== undefined ? { scheduledDate: new Date(dto.scheduledDate) } : {}),
+        ...(dto.departureDate !== undefined ? { departureDate: new Date(dto.departureDate) } : {}),
         ...(dto.driverFullName !== undefined ? { driverFullName: dto.driverFullName } : {}),
         ...(dto.driverNationalId !== undefined ? { driverNationalId: dto.driverNationalId } : {}),
         ...(dto.driverPhone !== undefined ? { driverPhone: dto.driverPhone } : {}),
