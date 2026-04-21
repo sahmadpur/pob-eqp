@@ -52,8 +52,7 @@ export class PaymentService {
     });
   }
 
-  async confirmPayment(paymentId: string) {
-    // No confirmedById on Payment in schema — use confirmedAt only
+  async confirmPayment(paymentId: string, actorUserId?: string) {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: { order: true },
@@ -64,6 +63,7 @@ export class PaymentService {
     }
 
     const now = new Date();
+    const isManual = Boolean(actorUserId);
 
     return this.prisma.$transaction([
       this.prisma.payment.update({
@@ -80,9 +80,10 @@ export class PaymentService {
       this.prisma.orderEvent.create({
         data: {
           orderId: payment.orderId,
-          actor: 'Platform',
-          event: 'PAYMENT_CONFIRMED',   // schema: event string field
-          note: 'Payment confirmed',
+          actor: isManual ? 'Finance' : 'Platform',
+          actorId: actorUserId,
+          event: 'PAYMENT_CONFIRMED',
+          note: isManual ? 'Payment manually confirmed' : 'Payment confirmed',
         },
       }),
     ]);

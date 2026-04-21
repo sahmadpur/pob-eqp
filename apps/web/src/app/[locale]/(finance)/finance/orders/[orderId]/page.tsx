@@ -112,7 +112,7 @@ export default function FinanceOrderDetailPage() {
   useEffect(() => { loadOrder(); }, [orderId]);
 
   const payment = order?.payments[0];
-  const canConfirm = order?.status === 'PENDING_PAYMENT' && order?.paymentMethod !== 'CARD'
+  const canConfirm = order?.status === 'PENDING_PAYMENT'
     && (!payment || payment.status === 'PENDING');
 
   // Initiate payment if it doesn't exist yet, then confirm

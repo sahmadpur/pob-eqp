@@ -33,7 +33,7 @@ export class PaymentController {
     @Param('paymentId') paymentId: string,
     @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
-    return this.paymentService.confirmPayment(paymentId);
+    return this.paymentService.confirmPayment(paymentId, req.user.id);
   }
 
   @Post(':paymentId/reject')
