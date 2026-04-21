@@ -94,8 +94,7 @@ export default function FinanceOrderDetailPage() {
   const [checkDocumentsOk, setCheckDocumentsOk] = useState(false);
   const [checkDriverIdOk, setCheckDriverIdOk] = useState(false);
   const [checkVehicleOk, setCheckVehicleOk] = useState(false);
-  const [checkPaymentOk, setCheckPaymentOk] = useState(false);
-  const [upgradedToPriority, setUpgradedToPriority] = useState(false);
+  const [overrideQueueType, setOverrideQueueType] = useState<string>('');
   const [internalNote, setInternalNote] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [clarifyNote, setClarifyNote] = useState('');
@@ -181,12 +180,13 @@ export default function FinanceOrderDetailPage() {
     setVerifying(true);
     setActionMsg(null);
     try {
+      const effectiveQueue = overrideQueueType || order.queueType || undefined;
       await apiClient.post(`/orders/${order.orderId}/verify`, {
         checkDocumentsOk,
         checkDriverIdOk,
         checkVehicleOk,
-        checkPaymentOk,
-        upgradedToPriority,
+        queueType: overrideQueueType && overrideQueueType !== order.queueType ? overrideQueueType : undefined,
+        upgradedToPriority: effectiveQueue === 'PRIORITY',
         internalNote: internalNote.trim() || undefined,
       });
       setActionMsg({ type: 'success', text: t('verifySuccess') });
@@ -293,17 +293,16 @@ export default function FinanceOrderDetailPage() {
         </div>
       )}
 
-      {/* Verification Panel — shown when AWAITING_VERIFICATION */}
-      {order.status === 'AWAITING_VERIFICATION' && (
+      {/* Approval Panel — shown when AWAITING_APPROVAL (pre-payment finance review) */}
+      {order.status === 'AWAITING_APPROVAL' && (
         <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl space-y-5">
-          <p className="font-semibold text-blue-800 text-sm">{t('verifyTitle')}</p>
+          <p className="font-semibold text-blue-800 text-sm">{t('approveTitle')}</p>
 
           <div className="space-y-2">
             {([
               { key: 'checkDocuments', value: checkDocumentsOk, setter: setCheckDocumentsOk },
               { key: 'checkDriverId', value: checkDriverIdOk, setter: setCheckDriverIdOk },
               { key: 'checkVehicle', value: checkVehicleOk, setter: setCheckVehicleOk },
-              { key: 'checkPayment', value: checkPaymentOk, setter: setCheckPaymentOk },
             ] as const).map(({ key, value, setter }) => (
               <label key={key} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                 <input
@@ -315,15 +314,20 @@ export default function FinanceOrderDetailPage() {
                 {t(key)}
               </label>
             ))}
-            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={upgradedToPriority}
-                onChange={(e) => setUpgradedToPriority(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              {t('upgradeToPriority')}
-            </label>
+          </div>
+
+          <div className="space-y-1">
+            <label className="block text-xs font-medium text-gray-600">{t('queueTypeOverride')}</label>
+            <select
+              value={overrideQueueType || order.queueType || ''}
+              onChange={(e) => setOverrideQueueType(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="REGULAR">Regular</option>
+              <option value="FAST_TRACK">Fast Track</option>
+              <option value="PRIORITY">Priority</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">{t('queueTypeOverrideHint')}</p>
           </div>
 
           <div className="space-y-1">
@@ -340,10 +344,10 @@ export default function FinanceOrderDetailPage() {
           <div className="flex gap-3 flex-wrap">
             <button
               onClick={handleVerify}
-              disabled={verifying || !checkDocumentsOk || !checkDriverIdOk || !checkVehicleOk || !checkPaymentOk}
+              disabled={verifying || !checkDocumentsOk || !checkDriverIdOk || !checkVehicleOk}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
             >
-              {verifying ? '…' : t('verifyBtn')}
+              {verifying ? '…' : t('approveBtn')}
             </button>
             <button
               onClick={() => setShowClarifyForm(!showClarifyForm)}

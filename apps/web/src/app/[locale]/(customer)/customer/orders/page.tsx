@@ -17,12 +17,13 @@ interface Order {
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-700',
+  AWAITING_APPROVAL: 'bg-indigo-100 text-indigo-700',
+  AWAITING_CLARIFICATION: 'bg-orange-100 text-orange-700',
   PENDING_PAYMENT: 'bg-yellow-100 text-yellow-700',
   PAYMENT_CONFIRMED: 'bg-blue-100 text-blue-700',
   AWAITING_VERIFICATION: 'bg-blue-100 text-blue-700',
-  QUEUED: 'bg-purple-100 text-purple-700',
-  CALLED: 'bg-orange-100 text-orange-700',
-  IN_PROGRESS: 'bg-cyan-100 text-cyan-700',
+  VERIFIED: 'bg-green-100 text-green-700',
+  IN_SHIPMENT: 'bg-cyan-100 text-cyan-700',
   COMPLETED: 'bg-green-100 text-green-700',
   CANCELLED: 'bg-red-100 text-red-700',
   NO_SHOW: 'bg-red-100 text-red-700',
@@ -156,14 +157,16 @@ export default function MyOrdersPage() {
                       >
                         View
                       </button>
-                      {order.status === 'PENDING_PAYMENT' && (
+                      {(order.status === 'PENDING_PAYMENT' || order.status === 'AWAITING_APPROVAL' || order.status === 'AWAITING_CLARIFICATION') && (
                         <>
-                          <button
-                            onClick={() => router.push(`/${locale}/customer/orders/${order.orderId}/edit`)}
-                            className="text-xs px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
-                          >
-                            {t('editBtn')}
-                          </button>
+                          {(order.status === 'AWAITING_APPROVAL' || order.status === 'AWAITING_CLARIFICATION') && (
+                            <button
+                              onClick={() => router.push(`/${locale}/customer/orders/${order.orderId}/edit`)}
+                              className="text-xs px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors"
+                            >
+                              {t('editBtn')}
+                            </button>
+                          )}
                           {confirmingId === order.orderId ? (
                             <span className="flex items-center gap-1.5 text-xs text-red-700">
                               {t('cancelConfirm')}

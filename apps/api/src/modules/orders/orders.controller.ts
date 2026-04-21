@@ -50,6 +50,27 @@ export class OrdersController {
 
   // Static routes MUST come before dynamic :orderId to avoid NestJS shadowing them
 
+  @Delete(':orderId/documents/:documentId')
+  @ApiOperation({ summary: 'Delete a document from an order (customer, pre-approval only)' })
+  async deleteOrderDocument(
+    @Param('orderId') orderId: string,
+    @Param('documentId') documentId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    const doc = await this.documentService.findDocumentWithOrder(documentId);
+    if (!doc || !doc.order) throw new BadRequestException('Document not found or not attached to an order');
+
+    const order = await this.ordersService.findByOrderId(orderId);
+    if (doc.orderId !== order.id) throw new BadRequestException('Document does not belong to this order');
+    if (doc.order.userId !== req.user.id) throw new BadRequestException('You do not own this order');
+    if (order.status !== 'AWAITING_APPROVAL' && order.status !== 'AWAITING_CLARIFICATION') {
+      throw new BadRequestException('Documents can only be changed before approval or during clarification');
+    }
+
+    await this.documentService.deleteDocumentById(documentId);
+    return { ok: true };
+  }
+
   @Post(':orderId/documents')
   @ApiOperation({ summary: 'Upload a document for an order (vehicle, driver, or cargo)' })
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))

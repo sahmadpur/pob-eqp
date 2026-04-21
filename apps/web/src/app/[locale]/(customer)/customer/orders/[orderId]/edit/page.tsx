@@ -125,7 +125,7 @@ export default function EditOrderPage() {
       .get<{ data: OrderDetail }>(`/orders/${orderId}`)
       .then((res) => {
         const o = res.data.data;
-        if (o.status !== 'PENDING_PAYMENT') { setLocked(true); return; }
+        if (o.status !== 'AWAITING_APPROVAL' && o.status !== 'AWAITING_CLARIFICATION') { setLocked(true); return; }
         setExistingDocs(o.documents ?? []);
         const departureDate = o.departureDate
           ? new Date(o.departureDate).toISOString().split('T')[0]
@@ -259,15 +259,40 @@ export default function EditOrderPage() {
   const existingDocsByCategory = (types: string[]) =>
     existingDocs.filter((d) => types.includes(d.type));
 
-  const ExistingDocsBadge = ({ types }: { types: string[] }) => {
+  const removeExistingDoc = async (docId: string) => {
+    try {
+      await apiClient.delete(`/orders/${orderId}/documents/${docId}`);
+      setExistingDocs((prev) => prev.filter((d) => d.id !== docId));
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setApiError(e.response?.data?.message ?? 'Failed to remove document');
+    }
+  };
+
+  const ExistingDocsList = ({ types }: { types: string[] }) => {
     const docs = existingDocsByCategory(types);
     if (!docs.length) return null;
     return (
-      <div className="flex flex-wrap gap-1 mt-1">
+      <div className="flex flex-col gap-1.5 mt-2">
         {docs.map((d) => (
-          <span key={d.id} className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
-            {d.type.replace(/_/g, ' ')} — {d.originalFileName}
-          </span>
+          <div key={d.id} className="flex items-center justify-between gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-green-800 uppercase tracking-wide">
+                {d.type.replace(/_/g, ' ')}
+              </p>
+              <p className="text-xs text-green-700 truncate" title={d.originalFileName}>
+                {d.originalFileName}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeExistingDoc(d.id)}
+              className="text-xs px-2 py-1 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-md transition-colors whitespace-nowrap"
+              aria-label="Remove document"
+            >
+              ✕ Remove
+            </button>
+          </div>
         ))}
       </div>
     );
@@ -362,8 +387,8 @@ export default function EditOrderPage() {
           <div className="bg-gray-50 rounded-xl p-4 space-y-3">
             <div>
               <h3 className="font-semibold text-gray-800 text-sm">Vehicle Documents</h3>
-              <ExistingDocsBadge types={['VEHICLE_REGISTRATION', 'VEHICLE_INSURANCE']} />
-              <p className="text-xs text-gray-500 mt-1">Upload new documents to replace or supplement existing ones</p>
+              <ExistingDocsList types={['VEHICLE_REGISTRATION', 'VEHICLE_INSURANCE']} />
+              <p className="text-xs text-gray-500 mt-2">Uploading a new file of the same type replaces the existing one.</p>
             </div>
             {fileInput('Vehicle Registration Certificate', 'VEHICLE_REGISTRATION')}
             {fileInput('Vehicle Insurance', 'VEHICLE_INSURANCE')}
@@ -387,8 +412,8 @@ export default function EditOrderPage() {
         <div className="bg-gray-50 rounded-xl p-4 space-y-3">
           <div>
             <h3 className="font-semibold text-gray-800 text-sm">Driver Documents</h3>
-            <ExistingDocsBadge types={['DRIVER_LICENSE', 'PASSPORT']} />
-            <p className="text-xs text-gray-500 mt-1">Upload new documents to supplement existing ones</p>
+            <ExistingDocsList types={['DRIVER_LICENSE', 'PASSPORT']} />
+            <p className="text-xs text-gray-500 mt-2">Uploading a new file of the same type replaces the existing one.</p>
           </div>
           {fileInput("Driver's License", 'DRIVER_LICENSE')}
           {fileInput('Passport', 'PASSPORT')}
@@ -422,8 +447,8 @@ export default function EditOrderPage() {
           <div className="bg-gray-50 rounded-xl p-4 space-y-3">
             <div>
               <h3 className="font-semibold text-gray-800 text-sm">Cargo Documents</h3>
-              <ExistingDocsBadge types={['CMR', 'CARGO_DECLARATION']} />
-              <p className="text-xs text-gray-500 mt-1">Upload new cargo documents</p>
+              <ExistingDocsList types={['CMR', 'CARGO_DECLARATION']} />
+              <p className="text-xs text-gray-500 mt-2">Uploading a new file of the same type replaces the existing one.</p>
             </div>
             {fileInput('CMR Waybill', 'CMR')}
             {fileInput('Cargo Declaration', 'CARGO_DECLARATION')}

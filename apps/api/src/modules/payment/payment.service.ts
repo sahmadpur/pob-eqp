@@ -73,7 +73,7 @@ export class PaymentService {
       this.prisma.order.update({
         where: { id: payment.orderId },
         data: {
-          status: OrderStatus.AWAITING_VERIFICATION,
+          status: OrderStatus.VERIFIED,
           paymentConfirmedAt: now, // immutable FIFO sort key
         },
       }),

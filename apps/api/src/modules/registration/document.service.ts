@@ -49,8 +49,16 @@ export class DocumentService {
       );
     }
 
-    // Enforce 5-doc limit per order
+    // When replacing an existing document of the same type on an order,
+    // delete the old file+record first so it doesn't count against the limit.
     if (dto.orderId) {
+      const existing = await this.prisma.document.findFirst({
+        where: { orderId: dto.orderId, type: dto.documentType },
+      });
+      if (existing) {
+        await this.deleteDocumentById(existing.id);
+      }
+
       const count = await this.prisma.document.count({ where: { orderId: dto.orderId } });
       if (count >= FILE_LIMITS.MAX_ADDITIONAL_DOCS) {
         throw new BadRequestException(
@@ -95,6 +103,31 @@ export class DocumentService {
       throw new NotFoundException('File not found');
     }
     return resolved;
+  }
+
+  async deleteDocumentById(documentId: string) {
+    const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
+    if (!doc) return;
+
+    // Delete the file on disk (best-effort — DB row is the source of truth).
+    try {
+      const fullPath = path.resolve(path.join(this.uploadsDir, doc.s3Key));
+      const base = path.resolve(this.uploadsDir);
+      if (fullPath.startsWith(base + path.sep) && fs.existsSync(fullPath)) {
+        await fs.promises.unlink(fullPath);
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to delete file ${doc.s3Key}: ${(err as Error).message}`);
+    }
+
+    await this.prisma.document.delete({ where: { id: documentId } });
+  }
+
+  async findDocumentWithOrder(documentId: string) {
+    return this.prisma.document.findUnique({
+      where: { id: documentId },
+      include: { order: { select: { userId: true } } },
+    });
   }
 
   async getDocumentsByUser(uploadedById: string) {

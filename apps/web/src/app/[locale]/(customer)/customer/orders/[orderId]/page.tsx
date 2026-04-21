@@ -69,7 +69,16 @@ interface OrderDetail {
   clarificationRounds: ClarificationRound[];
 }
 
+function relevantDocTypes(transportType: string): string[] {
+  const base = ['DRIVER_LICENSE', 'PASSPORT'];
+  if (transportType === 'DRIVER_ONLY') return base;
+  const withVehicle = [...base, 'VEHICLE_REGISTRATION', 'VEHICLE_INSURANCE'];
+  if (transportType !== 'TRANSPORT_WITH_CARGO') return withVehicle;
+  return [...withVehicle, 'CMR', 'CARGO_DECLARATION'];
+}
+
 const STATUS_COLORS: Record<string, string> = {
+  AWAITING_APPROVAL: 'bg-indigo-100 text-indigo-700',
   PENDING_PAYMENT: 'bg-yellow-100 text-yellow-700',
   AWAITING_VERIFICATION: 'bg-blue-100 text-blue-700',
   AWAITING_CLARIFICATION: 'bg-orange-100 text-orange-700',
@@ -97,8 +106,9 @@ export default function CustomerOrderDetailPage() {
   const [qrBlobUrl, setQrBlobUrl] = useState<string | null>(null);
 
   const [clarifyNote, setClarifyNote] = useState('');
-  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingType, setUploadingType] = useState<string | null>(null);
+  const [docError, setDocError] = useState<string | null>(null);
 
   const loadOrder = () => {
     apiClient
@@ -130,11 +140,10 @@ export default function CustomerOrderDetailPage() {
     try {
       await apiClient.post(`/orders/${order.orderId}/clarify/respond`, {
         customerNote: clarifyNote.trim(),
-        customerDocIds: selectedDocIds,
+        customerDocIds: order.documents.map((d) => d.id),
       });
       setActionMsg({ type: 'success', text: t('clarifySuccess') });
       setClarifyNote('');
-      setSelectedDocIds([]);
       loadOrder();
     } catch {
       setActionMsg({ type: 'error', text: t('clarifyFailed') });
@@ -143,10 +152,34 @@ export default function CustomerOrderDetailPage() {
     }
   };
 
-  const toggleDoc = (docId: string) => {
-    setSelectedDocIds((prev) =>
-      prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId],
-    );
+  const uploadDocument = async (docType: string, file: File) => {
+    setUploadingType(docType);
+    setDocError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('documentType', docType);
+      await apiClient.post(`/orders/${orderId}/documents`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      loadOrder();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setDocError(e.response?.data?.message ?? 'Failed to upload document');
+    } finally {
+      setUploadingType(null);
+    }
+  };
+
+  const removeDocument = async (docId: string) => {
+    setDocError(null);
+    try {
+      await apiClient.delete(`/orders/${orderId}/documents/${docId}`);
+      loadOrder();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setDocError(e.response?.data?.message ?? 'Failed to remove document');
+    }
   };
 
   if (loading) return (
@@ -219,29 +252,69 @@ export default function CustomerOrderDetailPage() {
               />
             </div>
 
-            {order.documents.length > 0 && (
-              <div className="space-y-1">
-                <label className="block text-xs font-medium text-gray-600">{t('clarifyDocsLabel')}</label>
-                <div className="space-y-1">
-                  {order.documents.map((doc) => (
-                    <label key={doc.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedDocIds.includes(doc.id)}
-                        onChange={() => toggleDoc(doc.id)}
-                        className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-400"
-                      />
-                      <span className="text-xs text-gray-500 uppercase">{doc.type.replace(/_/g, ' ')}</span>
-                      <span>{doc.originalFileName}</span>
-                    </label>
-                  ))}
-                </div>
+            {/* Re-upload / replace documents — changes are saved on pick */}
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-gray-600">{t('clarifyDocsLabel')}</label>
+              <p className="text-xs text-gray-500">{t('clarifyUploadHint')}</p>
+              {docError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-2 py-1.5">{docError}</p>
+              )}
+
+              <div className="space-y-1.5">
+                {relevantDocTypes(order.transportType).map((docType) => {
+                  const existing = order.documents.find((d) => d.type === docType);
+                  const isUploading = uploadingType === docType;
+                  return (
+                    <div key={docType} className="flex items-center gap-2 p-2 bg-white border border-orange-100 rounded-lg">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                          {docType.replace(/_/g, ' ')}
+                        </p>
+                        {existing ? (
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-green-700 truncate" title={existing.originalFileName}>
+                              ✓ {existing.originalFileName}
+                            </span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400 mt-0.5">{t('clarifyNoFileUploaded')}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {existing && (
+                          <button
+                            type="button"
+                            onClick={() => removeDocument(existing.id)}
+                            disabled={isUploading}
+                            className="text-xs px-2 py-1 bg-white hover:bg-red-50 text-red-600 border border-red-200 rounded-md transition-colors disabled:opacity-50"
+                          >
+                            ✕
+                          </button>
+                        )}
+                        <label className={`text-xs px-2.5 py-1 rounded-md cursor-pointer transition-colors whitespace-nowrap ${isUploading ? 'bg-gray-100 text-gray-400' : 'bg-orange-500 hover:bg-orange-600 text-white'}`}>
+                          {isUploading ? t('clarifyUploading') : existing ? t('clarifyReplaceBtn') : t('clarifyUploadBtn')}
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            className="hidden"
+                            disabled={isUploading}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) uploadDocument(docType, f);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            )}
+            </div>
 
             <button
               onClick={handleRespond}
-              disabled={submitting || !clarifyNote.trim()}
+              disabled={submitting || !clarifyNote.trim() || !!uploadingType}
               className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
             >
               {submitting ? t('clarifySubmitting') : t('clarifySubmitBtn')}

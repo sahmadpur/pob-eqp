@@ -3,12 +3,14 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { OrderStatus, TransportType, CargoType, PaymentMethod, UserRole } from '@pob-eqp/shared';
 import { ORDER_CONSTANTS } from '@pob-eqp/shared';
 import { QrService } from './qr.service';
+import { OrderNotificationsService } from './order-notifications.service';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly qrService: QrService,
+    private readonly orderNotifications: OrderNotificationsService,
   ) {}
 
   private generateOrderId(): string {
@@ -78,7 +80,7 @@ export class OrdersService {
         planId: dto.planId ?? null,
         planQueueTypeId: dto.planQueueTypeId ?? null,
         planDayId: dto.planDayId ?? null,
-        status: OrderStatus.PENDING_PAYMENT,
+        status: OrderStatus.AWAITING_APPROVAL,
         queueType: dto.queueType ?? null,
         destination: dto.destination,
         driverFullName: dto.driverFullName,
@@ -202,8 +204,13 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({ where: { orderId } });
     if (!order) throw new NotFoundException(`Order ${orderId} not found`);
     if (order.userId !== userId) throw new ForbiddenException('You do not own this order');
-    if (order.status !== OrderStatus.PENDING_PAYMENT) {
-      throw new BadRequestException('Only orders awaiting payment can be cancelled');
+    const cancellable: OrderStatus[] = [
+      OrderStatus.AWAITING_APPROVAL,
+      OrderStatus.AWAITING_CLARIFICATION,
+      OrderStatus.PENDING_PAYMENT,
+    ];
+    if (!cancellable.includes(order.status)) {
+      throw new BadRequestException('Order cannot be cancelled at this stage');
     }
 
     return this.prisma.$transaction([
@@ -240,8 +247,12 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({ where: { orderId } });
     if (!order) throw new NotFoundException(`Order ${orderId} not found`);
     if (order.userId !== userId) throw new ForbiddenException('You do not own this order');
-    if (order.status !== OrderStatus.PENDING_PAYMENT) {
-      throw new BadRequestException('Only orders awaiting payment can be edited');
+    const editable: OrderStatus[] = [
+      OrderStatus.AWAITING_APPROVAL,
+      OrderStatus.AWAITING_CLARIFICATION,
+    ];
+    if (!editable.includes(order.status)) {
+      throw new BadRequestException('Order can only be edited before approval or during clarification');
     }
 
     // Re-validate date coverage if date changed
@@ -299,18 +310,29 @@ export class OrdersService {
       checkDocumentsOk: boolean;
       checkDriverIdOk: boolean;
       checkVehicleOk: boolean;
-      checkPaymentOk: boolean;
+      checkPaymentOk?: boolean;
       upgradedToPriority?: boolean;
+      queueType?: string;
       internalNote?: string;
     },
   ) {
     const order = await this.prisma.order.findUnique({ where: { orderId } });
     if (!order) throw new NotFoundException(`Order ${orderId} not found`);
-    if (order.status !== OrderStatus.AWAITING_VERIFICATION) {
-      throw new BadRequestException('Order is not in AWAITING_VERIFICATION status');
+    if (order.status !== OrderStatus.AWAITING_APPROVAL) {
+      throw new BadRequestException('Order is not in AWAITING_APPROVAL status');
     }
 
     const now = new Date();
+
+    // Finance may override queue type (e.g. assign PRIORITY per CMR document)
+    const newQueueType = dto.queueType ?? order.queueType;
+    const queueChanged = dto.queueType !== undefined && dto.queueType !== order.queueType;
+
+    // Recalculate fees if queueType changed
+    const baseFeeAzn = Number(order.baseFeeAzn);
+    const cargoFeeAzn = Number(order.cargoFeeAzn);
+    const queueSurchargeAzn = newQueueType === 'PRIORITY' ? 30 : newQueueType === 'FAST_TRACK' ? 15 : 0;
+    const totalAmountAzn = baseFeeAzn + cargoFeeAzn + queueSurchargeAzn;
 
     return this.prisma.$transaction([
       this.prisma.orderVerification.upsert({
@@ -321,8 +343,8 @@ export class OrdersService {
           checkDocumentsOk: dto.checkDocumentsOk,
           checkDriverIdOk: dto.checkDriverIdOk,
           checkVehicleOk: dto.checkVehicleOk,
-          checkPaymentOk: dto.checkPaymentOk,
-          upgradedToPriority: dto.upgradedToPriority ?? false,
+          checkPaymentOk: dto.checkPaymentOk ?? false,
+          upgradedToPriority: dto.upgradedToPriority ?? newQueueType === 'PRIORITY',
           internalNote: dto.internalNote ?? null,
           verifiedAt: now,
         },
@@ -331,15 +353,18 @@ export class OrdersService {
           checkDocumentsOk: dto.checkDocumentsOk,
           checkDriverIdOk: dto.checkDriverIdOk,
           checkVehicleOk: dto.checkVehicleOk,
-          checkPaymentOk: dto.checkPaymentOk,
-          upgradedToPriority: dto.upgradedToPriority ?? false,
+          checkPaymentOk: dto.checkPaymentOk ?? false,
+          upgradedToPriority: dto.upgradedToPriority ?? newQueueType === 'PRIORITY',
           internalNote: dto.internalNote ?? null,
           verifiedAt: now,
         },
       }),
       this.prisma.order.update({
         where: { orderId },
-        data: { status: OrderStatus.VERIFIED },
+        data: {
+          status: OrderStatus.PENDING_PAYMENT,
+          ...(queueChanged ? { queueType: newQueueType, queueSurchargeAzn, totalAmountAzn } : {}),
+        },
       }),
       this.prisma.orderClarificationRound.updateMany({
         where: { orderId: order.id, closedAt: null },
@@ -350,8 +375,10 @@ export class OrdersService {
           orderId: order.id,
           actor: 'Finance',
           actorId,
-          event: 'VERIFIED',
-          note: dto.internalNote ?? null,
+          event: 'APPROVED',
+          note: queueChanged
+            ? `Approved. Queue type set to ${newQueueType}.${dto.internalNote ? ' ' + dto.internalNote : ''}`
+            : (dto.internalNote ?? 'Approved — awaiting payment'),
         },
       }),
     ]);
@@ -362,10 +389,13 @@ export class OrdersService {
     actorId: string,
     requestNote: string,
   ) {
-    const order = await this.prisma.order.findUnique({ where: { orderId } });
+    const order = await this.prisma.order.findUnique({
+      where: { orderId },
+      include: { user: { select: { email: true } } },
+    });
     if (!order) throw new NotFoundException(`Order ${orderId} not found`);
-    if (order.status !== OrderStatus.AWAITING_VERIFICATION) {
-      throw new BadRequestException('Order is not in AWAITING_VERIFICATION status');
+    if (order.status !== OrderStatus.AWAITING_APPROVAL) {
+      throw new BadRequestException('Order is not in AWAITING_APPROVAL status');
     }
 
     const existingCount = await this.prisma.orderClarificationRound.count({
@@ -375,11 +405,13 @@ export class OrdersService {
       throw new BadRequestException('Maximum 2 clarification rounds already reached for this order');
     }
 
-    return this.prisma.$transaction([
+    const roundNumber = existingCount + 1;
+
+    const result = await this.prisma.$transaction([
       this.prisma.orderClarificationRound.create({
         data: {
           orderId: order.id,
-          roundNumber: existingCount + 1,
+          roundNumber,
           requestNote,
           requestedById: actorId,
         },
@@ -398,6 +430,18 @@ export class OrdersService {
         },
       }),
     ]);
+
+    // Email the customer so they know to act (non-blocking — errors only logged).
+    if (order.user?.email) {
+      await this.orderNotifications.sendClarificationRequest(
+        order.user.email,
+        order.orderId,
+        requestNote,
+        roundNumber,
+      );
+    }
+
+    return result;
   }
 
   async respondToClarification(
@@ -430,7 +474,7 @@ export class OrdersService {
       }),
       this.prisma.order.update({
         where: { orderId },
-        data: { status: OrderStatus.AWAITING_VERIFICATION },
+        data: { status: OrderStatus.AWAITING_APPROVAL },
       }),
       this.prisma.orderEvent.create({
         data: {

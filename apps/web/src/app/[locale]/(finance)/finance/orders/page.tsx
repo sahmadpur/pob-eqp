@@ -37,6 +37,8 @@ interface Order {
 }
 
 const STATUS_COLORS: Record<string, string> = {
+  AWAITING_APPROVAL: 'bg-indigo-100 text-indigo-700',
+  AWAITING_CLARIFICATION: 'bg-orange-100 text-orange-700',
   PENDING_PAYMENT: 'bg-yellow-100 text-yellow-700',
   AWAITING_VERIFICATION: 'bg-blue-100 text-blue-700',
   VERIFIED: 'bg-purple-100 text-purple-700',
@@ -54,9 +56,11 @@ const PAY_STATUS_COLORS: Record<string, string> = {
   CASH_AT_GATE: 'bg-purple-100 text-purple-700',
 };
 
-const FILTERS = ['filterAll', 'filterPendingPayment', 'filterAwaitingVerification', 'filterCompleted', 'filterCancelled'] as const;
+const FILTERS = ['filterAll', 'filterAwaitingApproval', 'filterAwaitingClarification', 'filterPendingPayment', 'filterAwaitingVerification', 'filterCompleted', 'filterCancelled'] as const;
 const FILTER_STATUSES: Record<string, string | undefined> = {
   filterAll: undefined,
+  filterAwaitingApproval: 'AWAITING_APPROVAL',
+  filterAwaitingClarification: 'AWAITING_CLARIFICATION',
   filterPendingPayment: 'PENDING_PAYMENT',
   filterAwaitingVerification: 'AWAITING_VERIFICATION',
   filterCompleted: 'COMPLETED',

@@ -69,9 +69,10 @@ enum BaseQueueType {
 }
 
 enum OrderStatus {
+  AWAITING_APPROVAL
+  AWAITING_CLARIFICATION
   PENDING_PAYMENT
   AWAITING_VERIFICATION
-  AWAITING_CLARIFICATION
   VERIFIED
   IN_SHIPMENT
   BORDER_PASSED
@@ -529,7 +530,7 @@ model Order {
   planQueueTypeId       String?
   vesselId              String?
 
-  status                OrderStatus    @default(PENDING_PAYMENT)
+  status                OrderStatus    @default(AWAITING_APPROVAL)
   queueType             String?        // PRIORITY | FAST_TRACK | REGULAR — denormalized for display
   destination           String
 

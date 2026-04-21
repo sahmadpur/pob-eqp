@@ -16,7 +16,7 @@ const DESTINATIONS = [
 ] as const;
 
 const schema = z.object({
-  queueType:          z.enum(['PRIORITY', 'FAST_TRACK', 'REGULAR']),
+  queueType:          z.enum(['FAST_TRACK', 'REGULAR']),
   departureDate:      z.string().min(1, 'Select a date'),
   destination:        z.enum(['Kuryk, Kazakhstan', 'Turkmenbashi, Turkmenistan']),
   vehiclePlateNumber: z.string().min(2, 'Vehicle plate required').max(20),
@@ -29,7 +29,7 @@ const schema = z.object({
   cargoDescription:   z.string().min(3, 'Describe the cargo').max(500),
   cargoWeightKg:      z.coerce.number().min(1, 'Weight required').max(1000000),
   cargoType:          z.enum(['GENERAL', 'HAZARDOUS', 'PERISHABLE']).default('GENERAL'),
-  paymentMethod:      z.enum(['BANK_TRANSFER', 'CASH', 'CARD']),
+  paymentMethod:      z.enum(['BANK_TRANSFER', 'CARD']),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -60,11 +60,11 @@ export default function NewOrderPage() {
   const [checkingDate, setCheckingDate] = useState(false);
   const [docFiles, setDocFiles] = useState<DocFiles>({});
   const [docErrors, setDocErrors] = useState<string | null>(null);
+  const [pendingData, setPendingData] = useState<FormData | null>(null);
 
   const QUEUE_OPTIONS = [
-    { value: 'REGULAR',    label: t('queueRegular'),    desc: t('queueRegularDesc'),    color: 'border-gray-300'  },
-    { value: 'FAST_TRACK', label: t('queueFastTrack'), desc: t('queueFastTrackDesc'),  color: 'border-blue-400'  },
-    { value: 'PRIORITY',   label: t('queuePriority'),  desc: t('queuePriorityDesc'),   color: 'border-amber-400' },
+    { value: 'REGULAR',    label: t('queueRegular'),   color: 'border-gray-300' },
+    { value: 'FAST_TRACK', label: t('queueFastTrack'), color: 'border-blue-400' },
   ];
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
@@ -73,13 +73,14 @@ export default function NewOrderPage() {
       queueType: 'REGULAR',
       cargoType: 'GENERAL',
       transportType: 'TRANSPORT_WITH_CARGO',
-      paymentMethod: 'CASH',
+      paymentMethod: isLegal ? 'BANK_TRANSFER' : 'CARD',
       destination: 'Kuryk, Kazakhstan',
     },
   });
 
   const selectedQueue = watch('queueType');
   const transportType = watch('transportType');
+  const departureDateValue = watch('departureDate');
 
   const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const date = e.target.value;
@@ -123,7 +124,7 @@ export default function NewOrderPage() {
     }
   };
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = (data: FormData) => {
     // Validate required documents
     if (!docFiles.DRIVER_LICENSE) { setDocErrors(t('errorDriverLicense')); return; }
     if (!docFiles.PASSPORT) { setDocErrors(t('errorPassport')); return; }
@@ -135,7 +136,14 @@ export default function NewOrderPage() {
       if (!docFiles.CMR) { setDocErrors(t('errorCmr')); return; }
       if (!docFiles.CARGO_DECLARATION) { setDocErrors(t('errorCargoDeclaration')); return; }
     }
+    setDocErrors(null);
+    setApiError(null);
+    setPendingData(data);
+  };
 
+  const submitOrder = async () => {
+    if (!pendingData) return;
+    const data = pendingData;
     setSubmitting(true);
     setApiError(null);
     try {
@@ -160,6 +168,7 @@ export default function NewOrderPage() {
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
       setApiError(e.response?.data?.message ?? t('failedToCreate'));
+      setPendingData(null);
     } finally {
       setSubmitting(false);
     }
@@ -205,13 +214,12 @@ export default function NewOrderPage() {
         {/* Queue Type */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">{t('queueType')}</label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {QUEUE_OPTIONS.map((opt) => (
               <button key={opt.value} type="button"
                 onClick={() => setValue('queueType', opt.value as FormData['queueType'])}
                 className={`p-3 border-2 rounded-xl text-left transition-all ${selectedQueue === opt.value ? `${opt.color} bg-blue-50` : 'border-gray-200 hover:border-gray-300'}`}>
                 <div className="font-semibold text-sm text-gray-800">{opt.label}</div>
-                <div className="text-xs text-gray-500 mt-0.5">{opt.desc}</div>
               </button>
             ))}
           </div>
@@ -229,6 +237,11 @@ export default function NewOrderPage() {
               {checkingDate && <p className="text-gray-400 text-xs mt-1">{t('checkingDate')}</p>}
               {dateError && <p className="text-red-500 text-xs mt-1">{dateError}</p>}
               {errors.departureDate && !dateError && <p className="text-red-500 text-xs mt-1">{errors.departureDate.message}</p>}
+              {departureDateValue && !dateError && !checkingDate && (
+                <p className="text-amber-700 text-xs mt-1 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                  ⚠ {t('meteoNote')}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">{t('destination')}<span className="text-red-500 ml-0.5">*</span></label>
@@ -339,15 +352,15 @@ export default function NewOrderPage() {
         {/* Payment */}
         <div className="bg-gray-50 rounded-xl p-4 space-y-3">
           <h3 className="font-semibold text-gray-800 text-sm">{t('paymentSection')}</h3>
-          <div className="grid grid-cols-3 gap-3">
-            {(['BANK_TRANSFER', 'CASH', 'CARD'] as const)
+          <div className={`grid gap-3 ${isLegal ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {(['BANK_TRANSFER', 'CARD'] as const)
               .filter((m) => m !== 'BANK_TRANSFER' || isLegal)
               .map((m) => (
               <button key={m} type="button"
                 onClick={() => setValue('paymentMethod', m)}
                 className={`p-3 border-2 rounded-xl text-left transition-all ${watch('paymentMethod') === m ? 'border-pob-blue bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
                 <div className="font-semibold text-sm text-gray-800">
-                  {m === 'BANK_TRANSFER' ? `🏦 ${t('bankTransfer')}` : m === 'CASH' ? `💵 ${t('cash')}` : `💳 ${t('card')}`}
+                  {m === 'BANK_TRANSFER' ? `🏦 ${t('bankTransfer')}` : `💳 ${t('card')}`}
                 </div>
               </button>
             ))}
@@ -362,6 +375,106 @@ export default function NewOrderPage() {
           {submitting ? t('creating') : t('createBtn')}
         </button>
       </form>
+
+      {pendingData && (
+        <ConfirmModal
+          data={pendingData}
+          t={t}
+          submitting={submitting}
+          onCancel={() => setPendingData(null)}
+          onConfirm={submitOrder}
+        />
+      )}
+    </div>
+  );
+}
+
+interface ConfirmModalProps {
+  data: FormData;
+  t: (key: string) => string;
+  submitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+function ConfirmModal({ data, t, submitting, onCancel, onConfirm }: ConfirmModalProps) {
+  const queueLabel = data.queueType === 'FAST_TRACK' ? t('queueFastTrack') : t('queueRegular');
+  const transportLabel =
+    data.transportType === 'TRANSPORT_WITH_CARGO' ? t('transportWithCargo')
+    : data.transportType === 'TRANSPORT' ? t('transportNoCargo')
+    : t('driverOnly');
+  const cargoTypeLabel =
+    data.cargoType === 'HAZARDOUS' ? t('cargoTypeHazardous')
+    : data.cargoType === 'PERISHABLE' ? t('cargoTypePerishable')
+    : t('cargoTypeGeneral');
+  const paymentLabel = data.paymentMethod === 'BANK_TRANSFER' ? t('bankTransfer') : t('card');
+
+  const row = (label: string, value: string | number) => (
+    <div className="flex justify-between gap-3 py-1.5 border-b border-gray-100 last:border-0">
+      <span className="text-xs text-gray-500">{label}</span>
+      <span className="text-xs font-medium text-gray-800 text-right">{value}</span>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-5 border-b border-gray-100">
+          <h2 className="text-lg font-bold text-gray-900">{t('confirmTitle')}</h2>
+          <p className="text-sm text-gray-500 mt-1">{t('confirmSubtitle')}</p>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div>
+            <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1">{t('scheduleSection')}</h3>
+            {row(t('queueType'), queueLabel)}
+            {row(t('date'), data.departureDate)}
+            {row(t('destination'), data.destination)}
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1">{t('vehicleSection')}</h3>
+            {row(t('plateNumber'), data.vehiclePlateNumber)}
+            {row(t('vehicleType'), transportLabel)}
+            {row(t('makeModel'), data.vehicleMakeModel)}
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1">{t('driverSection')}</h3>
+            {row(t('driverFullName'), data.driverFullName)}
+            {row(t('driverNationalId'), data.driverNationalId)}
+            {row(t('driverPhone'), data.driverPhone)}
+            {row(t('driverLicense'), data.driverLicense)}
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1">{t('cargoSection')}</h3>
+            {row(t('cargoDescription'), data.cargoDescription)}
+            {row(t('cargoWeight'), data.cargoWeightKg)}
+            {row(t('cargoType'), cargoTypeLabel)}
+          </div>
+
+          <div>
+            <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1">{t('paymentSection')}</h3>
+            {row(t('paymentSection'), paymentLabel)}
+          </div>
+
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+            ⚠ {t('confirmDisclaimer')}
+          </div>
+        </div>
+
+        <div className="p-5 border-t border-gray-100 flex gap-3">
+          <button type="button" onClick={onCancel} disabled={submitting}
+            className="flex-1 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors text-sm">
+            {t('cancelBtn')}
+          </button>
+          <button type="button" onClick={onConfirm} disabled={submitting}
+            className="flex-1 py-2.5 bg-pob-blue text-white font-semibold rounded-lg hover:bg-pob-blue-light disabled:opacity-50 transition-colors text-sm">
+            {submitting ? t('creating') : t('confirmBtn')}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
