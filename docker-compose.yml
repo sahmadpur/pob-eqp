@@ -58,6 +58,9 @@ services:
         condition: service_started
     environment:
       NODE_ENV: development
+      # CIBPAY (and other legacy bank) client certs use pbeWithSHA1And40BitRC2-CBC,
+      # which OpenSSL 3 disables by default. Enable the legacy provider.
+      NODE_OPTIONS: --openssl-legacy-provider
       DATABASE_URL: postgresql://${POSTGRES_USER:-pob_user}:${POSTGRES_PASSWORD:-pob_secret}@postgres:5432/${POSTGRES_DB:-pob_eqp}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -77,13 +80,24 @@ services:
       MAIL_FROM: ${SMTP_FROM:-${MAIL_FROM:-noreply@portofbaku.az}}
       WEATHER_API_URL: ${WEATHER_API_URL:-https://api.openweathermap.org/data/2.5}
       WEATHER_API_KEY: ${WEATHER_API_KEY:-}
+      CIBPAY_BASE_URL: ${CIBPAY_BASE_URL:-https://api-preprod.cibpay.co}
+      CIBPAY_USERNAME: ${CIBPAY_USERNAME:-}
+      CIBPAY_PASSWORD: ${CIBPAY_PASSWORD:-}
+      CIBPAY_PFX_PATH: ${CIBPAY_PFX_PATH:-/app/secrets/cibpay.p12}
+      CIBPAY_PFX_PASSWORD: ${CIBPAY_PFX_PASSWORD:-}
+      CIBPAY_TERMINAL: ${CIBPAY_TERMINAL:-}
+      CIBPAY_FORCE_3D: ${CIBPAY_FORCE_3D:-1}
+      CIBPAY_DEFAULT_CURRENCY: ${CIBPAY_DEFAULT_CURRENCY:-AZN}
+      CIBPAY_RETURN_BASE_URL: ${CIBPAY_RETURN_BASE_URL:-${FRONTEND_URL:-http://localhost:3000}}
     ports:
       - '3001:3001'
     volumes:
       - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/prisma:/app/apps/api/prisma
       - ./packages:/app/packages
       - uploads_data:/app/uploads
-    command: sh -c "cd /app/apps/api && /app/node_modules/.bin/ts-node --transpile-only -r /app/node_modules/tsconfig-paths/register src/main.ts"
+      - ./secrets:/app/secrets:ro
+    command: sh -c "cd /app/apps/api && npx prisma generate && /app/node_modules/.bin/ts-node --transpile-only -r /app/node_modules/tsconfig-paths/register src/main.ts"
 
   web:
     build:

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
+import { RefundDialog } from '@/components/payment/RefundDialog';
+import { CancelDialog } from '@/components/payment/CancelDialog';
 
 interface Payment {
   id: string;
@@ -13,6 +15,12 @@ interface Payment {
   cashReferenceCode: string | null;
   confirmedAt: string | null;
   failureReason: string | null;
+  cibpayOrderId?: string | null;
+  cibpayStatus?: string | null;
+  refundedAt?: string | null;
+  refundAmount?: number | null;
+  cancelledAt?: string | null;
+  cancelledReason?: string | null;
 }
 
 interface ClarificationRound {
@@ -100,6 +108,9 @@ export default function FinanceOrderDetailPage() {
   const [clarifyNote, setClarifyNote] = useState('');
   const [clarifying, setClarifying] = useState(false);
   const [showClarifyForm, setShowClarifyForm] = useState(false);
+
+  const [showRefundDialog, setShowRefundDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const loadOrder = () => {
     apiClient
@@ -478,11 +489,61 @@ export default function FinanceOrderDetailPage() {
           <h2 className="font-semibold text-gray-800 text-sm mb-3">{t('paymentInfo')}</h2>
           {row(t('paymentMethod'), order.paymentMethod.replace(/_/g, ' '))}
           {payment && row(t('paymentStatus'), payment.status.replace(/_/g, ' '))}
+          {payment?.cibpayStatus && row('CIBPAY status', payment.cibpayStatus)}
+          {payment?.cibpayOrderId && row('CIBPAY order ID', payment.cibpayOrderId)}
           {payment?.cashReferenceCode && row(t('cashRef'), payment.cashReferenceCode)}
           {payment?.confirmedAt && row('Confirmed at', new Date(payment.confirmedAt).toLocaleString())}
+          {payment?.refundedAt && row('Refunded at', new Date(payment.refundedAt).toLocaleString())}
+          {payment?.refundAmount && row('Refunded amount', `${Number(payment.refundAmount).toFixed(2)} AZN`)}
+          {payment?.cancelledAt && row('Cancelled at', new Date(payment.cancelledAt).toLocaleString())}
+          {payment?.cancelledReason && row('Cancel reason', payment.cancelledReason)}
           {payment?.failureReason && row('Rejection reason', payment.failureReason)}
+
+          {payment && payment.method === 'CARD' && payment.status === 'CONFIRMED' && (
+            <div className="flex gap-2 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setShowRefundDialog(true)}
+                className="px-3 py-1.5 text-xs font-medium bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-md transition-colors"
+              >
+                {t('refundBtn')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCancelDialog(true)}
+                className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-md transition-colors"
+              >
+                {t('cancelPaymentBtn')}
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {showRefundDialog && payment && (
+        <RefundDialog
+          paymentId={payment.id}
+          maxAmountAzn={Number(payment.amountAzn)}
+          onClose={() => setShowRefundDialog(false)}
+          onDone={() => {
+            setShowRefundDialog(false);
+            setActionMsg({ type: 'success', text: t('refundSuccess') });
+            loadOrder();
+          }}
+        />
+      )}
+
+      {showCancelDialog && payment && (
+        <CancelDialog
+          paymentId={payment.id}
+          onClose={() => setShowCancelDialog(false)}
+          onDone={() => {
+            setShowCancelDialog(false);
+            setActionMsg({ type: 'success', text: t('cancelSuccess') });
+            loadOrder();
+          }}
+        />
+      )}
 
       {/* Documents */}
       {order.documents && order.documents.length > 0 && (() => {

@@ -140,7 +140,7 @@ export class OrdersService {
         planQueueType: true,
         timeline: { orderBy: { createdAt: 'asc' } },
         documents: true,
-        payments: true,
+        payments: { orderBy: { createdAt: 'desc' } },
         verification: true,
         clarificationRounds: { orderBy: { roundNumber: 'asc' } },
       },

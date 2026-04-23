@@ -46,3 +46,8 @@ yarn-debug.log*
 
 # Docker
 docker-compose.override.yml
+
+# Secrets (CIBPAY client cert etc.)
+/secrets/
+*.p12
+*.pfx

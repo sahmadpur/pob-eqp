@@ -712,6 +712,12 @@ model Payment {
   cardLast4           String?       // last 4 digits only — no raw card data stored
   cardBrand           String?       // 'visa' | 'mastercard' | 'amex'
 
+  // CIBPAY gateway
+  cibpayOrderId       String?       @unique
+  cibpayPaymentUrl    String?
+  cibpayStatus        String?       // raw CIBPAY status: new|prepared|authorized|charged|reversed|refunded|rejected|fraud|declined|chargedback|credited|error
+  cibpayLastSyncedAt  DateTime?
+
   // Bank transfer
   bankReference       String?       // = Order ID used as reference
   receiptS3Key        String?
@@ -720,11 +726,13 @@ model Payment {
   cashReferenceCode   String?       @unique  // 6-digit code
   cashReferenceExpiry DateTime?
 
-  // Refund
+  // Refund / cancel
   refundInitiatedAt   DateTime?
   refundedAt          DateTime?
   refundAmount        Decimal?      @db.Decimal(10, 2)
   refundReference     String?
+  cancelledAt         DateTime?
+  cancelledReason     String?
 
   // Idempotency key — prevents duplicate charges on retry
   idempotencyKey      String        @unique
@@ -736,11 +744,31 @@ model Payment {
   updatedAt           DateTime      @updatedAt
 
   order               Order         @relation(fields: [orderId], references: [id])
+  gatewayLogs         PaymentGatewayLog[]
 
   @@index([orderId])
   @@index([status])
   @@index([cashReferenceCode])
   @@map("payments")
+}
+
+model PaymentGatewayLog {
+  id             String   @id @default(cuid())
+  paymentId      String?
+  provider       String   // 'cibpay'
+  operation      String   // 'create_order' | 'get_order' | 'refund' | 'cancel' | 'charge' | 'ping'
+  direction      String   // 'request' | 'response' | 'error'
+  httpStatus     Int?
+  idempotencyKey String?
+  payload        Json
+  latencyMs      Int?
+  createdAt      DateTime @default(now())
+
+  payment        Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@index([provider, operation])
+  @@map("payment_gateway_logs")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

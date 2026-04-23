@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api-client';
+import { CardPaymentButton } from '@/components/payment/CardPaymentButton';
 
 interface Document {
   id: string;
@@ -19,6 +20,8 @@ interface Payment {
   amountAzn: number;
   cashReferenceCode: string | null;
   confirmedAt: string | null;
+  cibpayPaymentUrl?: string | null;
+  failureReason?: string | null;
 }
 
 interface TimelineEvent {
@@ -98,6 +101,7 @@ export default function CustomerOrderDetailPage() {
   const params = useParams<{ orderId: string }>();
   const orderId = params.orderId;
   const t = useTranslations('orderDetail');
+  const tPayment = useTranslations('payment');
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -403,8 +407,49 @@ export default function CustomerOrderDetailPage() {
             {row(t('paymentMethod'), payment.method.replace(/_/g, ' '))}
             {row(t('paymentStatus'), payment.status.replace(/_/g, ' '))}
             {payment.cashReferenceCode && row(t('cashRef'), payment.cashReferenceCode)}
+            {payment.status === 'FAILED' && payment.failureReason && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-md px-2 py-1.5 mt-1">
+                {payment.failureReason}
+              </p>
+            )}
+            {order.paymentMethod === 'CARD' &&
+              order.status === 'PENDING_PAYMENT' &&
+              payment.status === 'PENDING' && (
+                <div className="pt-3">
+                  <CardPaymentButton
+                    orderId={order.orderId}
+                    amountAzn={Number(order.totalAmountAzn)}
+                    locale={locale}
+                    existingPaymentUrl={payment.cibpayPaymentUrl}
+                  />
+                </div>
+              )}
+            {order.paymentMethod === 'CARD' &&
+              order.status === 'PENDING_PAYMENT' &&
+              payment.status === 'FAILED' && (
+                <div className="pt-3">
+                  <CardPaymentButton
+                    orderId={order.orderId}
+                    amountAzn={Number(order.totalAmountAzn)}
+                    locale={locale}
+                    label={tPayment('retryPayment')}
+                  />
+                </div>
+              )}
           </div>
         )}
+        {!payment &&
+          order.paymentMethod === 'CARD' &&
+          order.status === 'PENDING_PAYMENT' && (
+            <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-2">
+              <h2 className="font-semibold text-gray-800 text-sm mb-3">{t('paymentSection')}</h2>
+              <CardPaymentButton
+                orderId={order.orderId}
+                amountAzn={Number(order.totalAmountAzn)}
+                locale={locale}
+              />
+            </div>
+          )}
       </div>
 
       {order.documents.length > 0 && (

@@ -82,6 +82,48 @@ export default function NewOrderPage() {
   const transportType = watch('transportType');
   const departureDateValue = watch('departureDate');
 
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  const fillTestData = () => {
+    const randN = (n: number) =>
+      Math.floor(Math.random() * Math.pow(10, n)).toString().padStart(n, '0');
+    const inDays = (d: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + d);
+      return date.toISOString().split('T')[0];
+    };
+
+    setValue('queueType', 'REGULAR');
+    setValue('departureDate', inDays(2));
+    setValue('destination', 'Kuryk, Kazakhstan');
+    setValue('vehiclePlateNumber', `10-AB-${randN(3)}`);
+    setValue('transportType', 'TRANSPORT_WITH_CARGO');
+    setValue('vehicleMakeModel', 'MAN TGX 18.500');
+    setValue('driverFullName', 'Elvin Mammadov');
+    setValue('driverNationalId', `AZE${randN(7)}`);
+    setValue('driverPhone', `+99450${randN(7)}`);
+    setValue('driverLicense', `AZ${randN(6)}`);
+    setValue('cargoDescription', 'Industrial machinery parts and spare components');
+    setValue('cargoWeightKg', 15000);
+    setValue('cargoType', 'GENERAL');
+    setValue('paymentMethod', isLegal ? 'BANK_TRANSFER' : 'CARD');
+
+    // Minimal valid PDF: "%PDF-1.4\n%%EOF"
+    const pdfBody = '%PDF-1.4\n%%EOF';
+    const makeFile = (name: string) =>
+      new File([pdfBody], name, { type: 'application/pdf' });
+    setDocFiles({
+      DRIVER_LICENSE: makeFile('driver_license.pdf'),
+      PASSPORT: makeFile('passport.pdf'),
+      VEHICLE_REGISTRATION: makeFile('vehicle_registration.pdf'),
+      VEHICLE_INSURANCE: makeFile('vehicle_insurance.pdf'),
+      CMR: makeFile('cmr.pdf'),
+      CARGO_DECLARATION: makeFile('cargo_declaration.pdf'),
+    });
+    setDateError(null);
+    setDocErrors(null);
+  };
+
   const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const date = e.target.value;
     setValue('departureDate', date);
@@ -210,6 +252,16 @@ export default function NewOrderPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+
+        {isDev && (
+          <button
+            type="button"
+            onClick={fillTestData}
+            className="w-full py-2 text-xs font-medium text-amber-700 bg-amber-50 border border-dashed border-amber-300 rounded-lg hover:bg-amber-100 transition-colors"
+          >
+            ⚡ Fill with test data (dev only)
+          </button>
+        )}
 
         {/* Queue Type */}
         <div>
