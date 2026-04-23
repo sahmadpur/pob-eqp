@@ -164,7 +164,7 @@ export class OrdersController {
     UserRole.ADMINISTRATOR,
     UserRole.FINANCE_OFFICER,
     UserRole.CONTROL_TOWER_OPERATOR,
-    UserRole.GATE_OFFICER,
+    UserRole.GATE_CONTROLLER,
     UserRole.TERMINAL_OPERATOR,
   )
   @ApiOperation({ summary: 'Update order status (staff only)' })

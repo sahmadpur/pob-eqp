@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ParkingService } from './parking.service';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { RolesGuard } from '../../guards/roles.guard';
 import { Roles } from '../../decorators/roles.decorator';
-import { UserRole } from '@pob-eqp/shared';
+import { UserRole, ParkingSlotStatus } from '@pob-eqp/shared';
+import { AssignSlotDto } from './dto/assign-slot.dto';
 
 @ApiTags('parking')
 @Controller('parking')
@@ -17,8 +18,8 @@ export class ParkingController {
   @Roles(
     UserRole.ADMINISTRATOR,
     UserRole.CONTROL_TOWER_OPERATOR,
-    UserRole.PARKING_CHECKER,
-    UserRole.GATE_OFFICER,
+    UserRole.PARKING_CONTROLLER,
+    UserRole.GATE_CONTROLLER,
   )
   @ApiOperation({ summary: 'Get all parking zones with slots' })
   async getZones() {
@@ -29,23 +30,39 @@ export class ParkingController {
   @Roles(
     UserRole.ADMINISTRATOR,
     UserRole.CONTROL_TOWER_OPERATOR,
-    UserRole.PARKING_CHECKER,
+    UserRole.PARKING_CONTROLLER,
   )
   @ApiOperation({ summary: 'Get parking occupancy summary' })
   async getOccupancy() {
     return this.parkingService.getParkingOccupancy();
   }
 
+  @Get('zones/:zoneId/slots')
+  @Roles(
+    UserRole.ADMINISTRATOR,
+    UserRole.CONTROL_TOWER_OPERATOR,
+    UserRole.PARKING_CONTROLLER,
+  )
+  @ApiOperation({ summary: 'List slots for a zone, optionally filtered by status' })
+  @ApiQuery({ name: 'status', required: false, enum: ParkingSlotStatus })
+  async getSlotsForZone(
+    @Param('zoneId') zoneId: string,
+    @Query('status') status?: ParkingSlotStatus,
+  ) {
+    return this.parkingService.getSlotsForZone(zoneId, status);
+  }
+
   @Post('assign')
-  @Roles(UserRole.GATE_OFFICER, UserRole.PARKING_CHECKER, UserRole.ADMINISTRATOR)
-  @ApiOperation({ summary: 'Assign a parking slot to an order' })
+  @Roles(UserRole.PARKING_CONTROLLER, UserRole.ADMINISTRATOR)
+  @ApiOperation({ summary: 'Assign a parking slot to an order (manual zone + slot pick)' })
   async assignSlot(
-    @Body() dto: { orderId: string; cargoType: string },
+    @Body() dto: AssignSlotDto,
     @Request() req: { user: { id: string; role: string; accountStatus: string } },
   ) {
     return this.parkingService.assignParkingSlot(
       dto.orderId,
-      dto.cargoType as Parameters<ParkingService['assignParkingSlot']>[1],
+      dto.zoneId,
+      dto.slotId,
       req.user.id,
     );
   }

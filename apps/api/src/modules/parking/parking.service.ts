@@ -1,57 +1,56 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
-import { ParkingSlotStatus, CargoType, ParkingZoneType } from '@pob-eqp/shared';
-
-// Schema CargoType: GENERAL | BULK | REFRIGERATED | HAZARDOUS | OVERSIZED | PERISHABLE
-// Schema ParkingZoneType: REGULAR | FAST_TRACK | HAZARDOUS_PRIORITY | OVERSIZED
-const CARGO_TO_ZONE_MAP: Partial<Record<CargoType, ParkingZoneType>> = {
-  [CargoType.GENERAL]: ParkingZoneType.REGULAR,
-  [CargoType.BULK]: ParkingZoneType.REGULAR,
-  [CargoType.REFRIGERATED]: ParkingZoneType.REGULAR,
-  [CargoType.PERISHABLE]: ParkingZoneType.REGULAR,
-  [CargoType.HAZARDOUS]: ParkingZoneType.HAZARDOUS_PRIORITY,
-  [CargoType.OVERSIZED]: ParkingZoneType.OVERSIZED,
-};
+import { ParkingSlotStatus, OrderStatus } from '@pob-eqp/shared';
 
 @Injectable()
 export class ParkingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async assignParkingSlot(orderId: string, cargoType: CargoType, assignedById: string) {
+  async assignParkingSlot(orderId: string, zoneId: string, slotId: string, assignedById: string) {
     const order = await this.prisma.order.findUnique({ where: { orderId } });
     if (!order) throw new NotFoundException(`Order ${orderId} not found`);
-    if (order.parkingBayId) throw new ConflictException('Order already has a parking slot'); // schema: parkingBayId
+    if (order.status !== OrderStatus.IN_SHIPMENT) {
+      throw new BadRequestException('Order must be IN_SHIPMENT (gate-checked-in) before parking assignment');
+    }
+    if (order.parkingBayId) throw new ConflictException('Order already has a parking slot');
 
-    const zoneType = CARGO_TO_ZONE_MAP[cargoType] ?? ParkingZoneType.REGULAR;
-
-    const availableSlot = await this.prisma.parkingSlot.findFirst({
-      where: {
-        zone: { type: zoneType },
-        status: ParkingSlotStatus.AVAILABLE,
-        isActive: true,
-      },
+    const slot = await this.prisma.parkingSlot.findUnique({
+      where: { id: slotId },
       include: { zone: true },
     });
-
-    if (!availableSlot) {
-      throw new NotFoundException(`No available parking slot for cargo type ${cargoType}`);
+    if (!slot) throw new NotFoundException(`Parking slot ${slotId} not found`);
+    if (slot.zoneId !== zoneId) {
+      throw new BadRequestException('Selected slot does not belong to the chosen zone');
+    }
+    if (!slot.isActive) throw new BadRequestException('Selected slot is not active');
+    if (slot.status !== ParkingSlotStatus.AVAILABLE) {
+      throw new ConflictException(`Slot ${slot.slotLabel} is not available (current status: ${slot.status})`);
     }
 
     await this.prisma.$transaction([
       this.prisma.parkingSlot.update({
-        where: { id: availableSlot.id },
+        where: { id: slot.id },
         data: { status: ParkingSlotStatus.OCCUPIED },
       }),
       this.prisma.order.update({
         where: { orderId },
         data: {
-          parkingBayId: availableSlot.id,       // schema: parkingBayId (FK to ParkingSlot)
+          parkingBayId: slot.id,
           parkingConfirmedAt: new Date(),
+        },
+      }),
+      this.prisma.orderEvent.create({
+        data: {
+          orderId: order.id,
+          actor: 'Parking',
+          actorId: assignedById,
+          event: 'PARKING_ASSIGNED',
+          note: `Assigned to zone ${slot.zone.name}, slot ${slot.slotLabel}`,
         },
       }),
     ]);
 
-    return availableSlot;
+    return { ...slot, status: ParkingSlotStatus.OCCUPIED };
   }
 
   async releaseParkingSlot(slotId: string) {
@@ -66,7 +65,22 @@ export class ParkingService {
 
   async getParkingZones() {
     return this.prisma.parkingZone.findMany({
-      include: { slots: { orderBy: { slotLabel: 'asc' } } }, // schema: slotLabel (not slotCode)
+      include: { slots: { orderBy: { slotLabel: 'asc' } } },
+    });
+  }
+
+  async getSlotsForZone(zoneId: string, status?: ParkingSlotStatus) {
+    const zone = await this.prisma.parkingZone.findUnique({ where: { id: zoneId } });
+    if (!zone) throw new NotFoundException(`Parking zone ${zoneId} not found`);
+
+    return this.prisma.parkingSlot.findMany({
+      where: {
+        zoneId,
+        isActive: true,
+        ...(status ? { status } : {}),
+      },
+      orderBy: { slotLabel: 'asc' },
+      select: { id: true, slotLabel: true, status: true },
     });
   }
 

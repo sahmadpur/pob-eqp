@@ -23,8 +23,8 @@ const ROLE_COLORS: Record<string, string> = {
   CUSTOMER_INDIVIDUAL: 'bg-green-100 text-green-700',
   CUSTOMER_LEGAL: 'bg-teal-100 text-teal-700',
   CONTROL_TOWER_OPERATOR: 'bg-orange-100 text-orange-700',
-  GATE_OFFICER: 'bg-yellow-100 text-yellow-700',
-  PARKING_CHECKER: 'bg-lime-100 text-lime-700',
+  GATE_CONTROLLER: 'bg-yellow-100 text-yellow-700',
+  PARKING_CONTROLLER: 'bg-lime-100 text-lime-700',
   BORDER_OFFICER: 'bg-indigo-100 text-indigo-700',
   TERMINAL_OPERATOR: 'bg-pink-100 text-pink-700',
 };
@@ -143,8 +143,8 @@ export default function UsersPage() {
           <option value="ADMINISTRATOR">Administrator</option>
           <option value="SYSTEM_ADMINISTRATOR">System Administrator</option>
           <option value="CONTROL_TOWER_OPERATOR">Control Tower Operator</option>
-          <option value="GATE_OFFICER">Gate Officer</option>
-          <option value="PARKING_CHECKER">Parking Checker</option>
+          <option value="GATE_CONTROLLER">Gate Controller</option>
+          <option value="PARKING_CONTROLLER">Parking Controller</option>
           <option value="BORDER_OFFICER">Border Officer</option>
           <option value="TERMINAL_OPERATOR">Terminal Operator</option>
         </select>

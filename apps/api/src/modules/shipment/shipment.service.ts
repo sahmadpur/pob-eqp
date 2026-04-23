@@ -2,15 +2,20 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { OrderStatus, LoadingStatus } from '@pob-eqp/shared';
 import { NO_SHOW } from '@pob-eqp/shared';
+import { OrderNotificationsService } from '../orders/order-notifications.service';
 
 @Injectable()
 export class ShipmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly orderNotifications: OrderNotificationsService,
+  ) {}
 
   async recordGateCheckIn(dto: {
     orderId: string;
     method: string;
     checksResult: Record<string, boolean>;
+    vehiclePlate?: string;
     operatorId: string;
   }) {
     const order = await this.prisma.order.findUnique({ where: { orderId: dto.orderId } });
@@ -53,6 +58,65 @@ export class ShipmentService {
     ]);
 
     return { checkIn, gatePassNumber };
+  }
+
+  async recordGateClarification(dto: {
+    orderId: string;
+    operatorId: string;
+    requestNote: string;
+  }) {
+    const order = await this.prisma.order.findUnique({
+      where: { orderId: dto.orderId },
+      include: { user: { select: { email: true } } },
+    });
+    if (!order) throw new NotFoundException(`Order ${dto.orderId} not found`);
+    if (order.status !== OrderStatus.VERIFIED) {
+      throw new BadRequestException('Order must be VERIFIED for gate to send to clarification');
+    }
+
+    const existingCount = await this.prisma.orderClarificationRound.count({
+      where: { orderId: order.id },
+    });
+    if (existingCount >= 2) {
+      throw new BadRequestException('Maximum 2 clarification rounds already reached for this order');
+    }
+
+    const roundNumber = existingCount + 1;
+
+    const result = await this.prisma.$transaction([
+      this.prisma.orderClarificationRound.create({
+        data: {
+          orderId: order.id,
+          roundNumber,
+          requestNote: dto.requestNote,
+          requestedById: dto.operatorId,
+        },
+      }),
+      this.prisma.order.update({
+        where: { orderId: dto.orderId },
+        data: { status: OrderStatus.AWAITING_CLARIFICATION },
+      }),
+      this.prisma.orderEvent.create({
+        data: {
+          orderId: order.id,
+          actor: 'Gate',
+          actorId: dto.operatorId,
+          event: 'GATE_CLARIFICATION_REQUESTED',
+          note: dto.requestNote,
+        },
+      }),
+    ]);
+
+    if (order.user?.email) {
+      await this.orderNotifications.sendClarificationRequest(
+        order.user.email,
+        order.orderId,
+        dto.requestNote,
+        roundNumber,
+      );
+    }
+
+    return result;
   }
 
   async updateLoadingStatus(dto: {

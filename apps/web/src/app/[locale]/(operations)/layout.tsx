@@ -17,10 +17,10 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
     CONTROL_TOWER_OPERATOR: [
       { label: t('navDashboard'), href: (l) => `/${l}/operations/dashboard` },
     ],
-    GATE_OFFICER: [
+    GATE_CONTROLLER: [
       { label: t('navGate'), href: (l) => `/${l}/operations/gate` },
     ],
-    PARKING_CHECKER: [
+    PARKING_CONTROLLER: [
       { label: t('navParking'), href: (l) => `/${l}/operations/parking` },
     ],
     BORDER_OFFICER: [
@@ -33,8 +33,8 @@ export default function OperationsLayout({ children }: { children: React.ReactNo
 
   const ROLE_LABELS: Record<string, string> = {
     CONTROL_TOWER_OPERATOR: t('roleLabelControlTower'),
-    GATE_OFFICER:           t('roleLabelGateOfficer'),
-    PARKING_CHECKER:        t('roleLabelParkingChecker'),
+    GATE_CONTROLLER:        t('roleLabelGateController'),
+    PARKING_CONTROLLER:     t('roleLabelParkingController'),
     BORDER_OFFICER:         t('roleLabelBorderOfficer'),
     TERMINAL_OPERATOR:      t('roleLabelTerminalOperator'),
   };

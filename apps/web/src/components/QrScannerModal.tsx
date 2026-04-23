@@ -52,8 +52,8 @@ export default function QrScannerModal({ onClose, onScan }: Props) {
           (text: string) => {
             if (!active) return;
             active = false;
-            scanner!.stop().catch(() => {});
-            onScanRef.current(text.trim());
+            // Hand off to parent first; cleanup will stop the scanner on unmount.
+            onScanRef.current(text.trim().toUpperCase());
           },
           () => {},                     // per-frame decode noise — ignore
         );

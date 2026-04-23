@@ -10,6 +10,6 @@ import { DocumentService } from '../registration/document.service';
   imports: [ConfigModule],
   controllers: [OrdersController],
   providers: [OrdersService, QrService, DocumentService, OrderNotificationsService],
-  exports: [OrdersService],
+  exports: [OrdersService, OrderNotificationsService],
 })
 export class OrdersModule {}

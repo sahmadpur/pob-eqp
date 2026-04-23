@@ -123,6 +123,44 @@ async function main() {
     console.log(`✅ Finance officer created: ${financeEmail}`);
   }
 
+  // ── Gate Controller ───────────────────────────────────────────────────────
+  const gateEmail = 'gate@portofbaku.az';
+  const existingGate = await prisma.user.findFirst({ where: { email: gateEmail } });
+  if (!existingGate) {
+    const passwordHash = await bcrypt.hash('Gate@1234!', 12);
+    await prisma.user.create({
+      data: {
+        email: gateEmail,
+        phone: '+994120000004',
+        passwordHash,
+        role: 'GATE_CONTROLLER',
+        accountStatus: 'ACTIVE',
+        displayName: 'Gate Controller',
+        locale: 'en',
+      },
+    });
+    console.log(`✅ Gate controller created: ${gateEmail}`);
+  }
+
+  // ── Parking Controller ────────────────────────────────────────────────────
+  const parkingEmail = 'parking@portofbaku.az';
+  const existingParking = await prisma.user.findFirst({ where: { email: parkingEmail } });
+  if (!existingParking) {
+    const passwordHash = await bcrypt.hash('Parking@1234!', 12);
+    await prisma.user.create({
+      data: {
+        email: parkingEmail,
+        phone: '+994120000005',
+        passwordHash,
+        role: 'PARKING_CONTROLLER',
+        accountStatus: 'ACTIVE',
+        displayName: 'Parking Controller',
+        locale: 'en',
+      },
+    });
+    console.log(`✅ Parking controller created: ${parkingEmail}`);
+  }
+
   console.log('✨ Seeding complete.');
 }
 

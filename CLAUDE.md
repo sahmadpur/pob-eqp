@@ -62,8 +62,8 @@ pob-eqp/
 | `ADMINISTRATOR` | `/admin/dashboard` |
 | `SYSTEM_ADMINISTRATOR` | `/admin/system` |
 | `CONTROL_TOWER_OPERATOR` | `/operations/dashboard` |
-| `GATE_OFFICER` | `/operations/gate` |
-| `PARKING_CHECKER` | `/operations/parking` |
+| `GATE_CONTROLLER` | `/operations/gate` |
+| `PARKING_CONTROLLER` | `/operations/parking` |
 | `BORDER_OFFICER` | `/operations/border` |
 | `TERMINAL_OPERATOR` | `/operations/terminal` |
 
@@ -120,6 +120,8 @@ docker compose logs api | grep "DEV ONLY"   # Find OTP codes in dev
 | Administrator | `admin@portofbaku.az` | `Admin@1234!` |
 | System Administrator | `sysadmin@portofbaku.az` | `SysAdmin@1234!` |
 | Finance Officer | `finance@portofbaku.az` | `Finance@1234!` |
+| Gate Controller | `gate@portofbaku.az` | `Gate@1234!` |
+| Parking Controller | `parking@portofbaku.az` | `Parking@1234!` |
 
 ## Service URLs
 - Web: http://localhost:3000

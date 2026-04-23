@@ -17,7 +17,7 @@ export class QueueController {
   @Roles(
     UserRole.ADMINISTRATOR,
     UserRole.CONTROL_TOWER_OPERATOR,
-    UserRole.GATE_OFFICER,
+    UserRole.GATE_CONTROLLER,
     UserRole.TERMINAL_OPERATOR,
   )
   @ApiOperation({ summary: 'Get queue for a specific day and queue type' })

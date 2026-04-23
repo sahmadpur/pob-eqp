@@ -334,6 +334,11 @@ export class OrdersService {
     const queueSurchargeAzn = newQueueType === 'PRIORITY' ? 30 : newQueueType === 'FAST_TRACK' ? 15 : 0;
     const totalAmountAzn = baseFeeAzn + cargoFeeAzn + queueSurchargeAzn;
 
+    // If payment was already confirmed (re-approval after gate clarification),
+    // skip PENDING_PAYMENT and go straight back to VERIFIED.
+    const alreadyPaid = !!order.paymentConfirmedAt;
+    const nextStatus = alreadyPaid ? OrderStatus.VERIFIED : OrderStatus.PENDING_PAYMENT;
+
     return this.prisma.$transaction([
       this.prisma.orderVerification.upsert({
         where: { orderId: order.id },
@@ -343,7 +348,7 @@ export class OrdersService {
           checkDocumentsOk: dto.checkDocumentsOk,
           checkDriverIdOk: dto.checkDriverIdOk,
           checkVehicleOk: dto.checkVehicleOk,
-          checkPaymentOk: dto.checkPaymentOk ?? false,
+          checkPaymentOk: dto.checkPaymentOk ?? alreadyPaid,
           upgradedToPriority: dto.upgradedToPriority ?? newQueueType === 'PRIORITY',
           internalNote: dto.internalNote ?? null,
           verifiedAt: now,
@@ -353,7 +358,7 @@ export class OrdersService {
           checkDocumentsOk: dto.checkDocumentsOk,
           checkDriverIdOk: dto.checkDriverIdOk,
           checkVehicleOk: dto.checkVehicleOk,
-          checkPaymentOk: dto.checkPaymentOk ?? false,
+          checkPaymentOk: dto.checkPaymentOk ?? alreadyPaid,
           upgradedToPriority: dto.upgradedToPriority ?? newQueueType === 'PRIORITY',
           internalNote: dto.internalNote ?? null,
           verifiedAt: now,
@@ -362,7 +367,7 @@ export class OrdersService {
       this.prisma.order.update({
         where: { orderId },
         data: {
-          status: OrderStatus.PENDING_PAYMENT,
+          status: nextStatus,
           ...(queueChanged ? { queueType: newQueueType, queueSurchargeAzn, totalAmountAzn } : {}),
         },
       }),
@@ -378,7 +383,7 @@ export class OrdersService {
           event: 'APPROVED',
           note: queueChanged
             ? `Approved. Queue type set to ${newQueueType}.${dto.internalNote ? ' ' + dto.internalNote : ''}`
-            : (dto.internalNote ?? 'Approved — awaiting payment'),
+            : (dto.internalNote ?? (alreadyPaid ? 'Re-approved after clarification — payment already confirmed' : 'Approved — awaiting payment')),
         },
       }),
     ]);

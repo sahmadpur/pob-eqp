@@ -75,6 +75,8 @@ These accounts are created by `npm run db:seed`. Use them to log in immediately.
 | Administrator | `admin@portofbaku.az` | `Admin@1234!` |
 | System Administrator | `sysadmin@portofbaku.az` | `SysAdmin@1234!` |
 | Finance Officer | `finance@portofbaku.az` | `Finance@1234!` |
+gate@portofbaku.az / Gate@1234! → GATE_CONTROLLER
+  - parking@portofbaku.az / Parking@1234! → PARKING_CONTROLLER
 
 > **Note:** All passwords follow the pattern `Role@1234!`. Bcrypt cost 12 (BRD requirement).
 
@@ -228,8 +230,8 @@ Example output:
 | `ADMINISTRATOR` | `/admin/dashboard` |
 | `SYSTEM_ADMINISTRATOR` | `/admin/system` |
 | `CONTROL_TOWER_OPERATOR` | `/operations/dashboard` |
-| `GATE_OFFICER` | `/operations/gate` |
-| `PARKING_CHECKER` | `/operations/parking` |
+| `GATE_CONTROLLER` | `/operations/gate` |
+| `PARKING_CONTROLLER` | `/operations/parking` |
 | `BORDER_OFFICER` | `/operations/border` |
 | `TERMINAL_OPERATOR` | `/operations/terminal` |
 
