@@ -14,7 +14,23 @@
     "individualCustomer": "Bireysel Müşteri",
     "individualDesc": "Bireysel sürücüler ve bağımsız taşıyıcılar için",
     "legalEntity": "Tüzel Kişi",
-    "legalDesc": "Şirketler ve işletmeler için"
+    "legalDesc": "Şirketler ve işletmeler için",
+    "secureAccess": "Güvenli Erişim",
+    "secureAccessSubtitle": "Yalnızca yetkili liman personeli ve kayıtlı müşteriler.",
+    "or": "veya",
+    "showPassword": "Şifreyi göster",
+    "hidePassword": "Şifreyi gizle"
+  },
+  "authHero": {
+    "portOfBaku": "Bakü Limanı",
+    "eQueuePlatform": "E-Sıra Platformu",
+    "eyebrow": "Hazar Kapısı · Kuruluş 1902",
+    "headline": "<em>Üç kıtanın</em> yükünün denizle buluştuğu yer.",
+    "description": "Feribot kargo sevkiyatı için resmi elektronik sıra. Öncelikli slotlar, şeffaf FIFO sıralaması ve canlı operasyonel görünürlük — hepsi tek güvenli platformda.",
+    "dailySlots": "Günlük slotlar",
+    "dispatch": "Sevk",
+    "languages": "Diller",
+    "bakiLimani": "Bakı Limanı"
   },
   "nav": {
     "dashboard": "Gösterge Paneli",

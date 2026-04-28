@@ -51,3 +51,6 @@ docker-compose.override.yml
 /secrets/
 *.p12
 *.pfx
+
+# Local dev notes (not for sharing)
+memory.md

@@ -116,6 +116,11 @@ services:
     volumes:
       - ./apps/web/src:/app/apps/web/src
       - ./apps/web/messages:/app/apps/web/messages
+      - ./apps/web/public:/app/apps/web/public
+      - ./apps/web/tailwind.config.ts:/app/apps/web/tailwind.config.ts
+      - ./apps/web/postcss.config.js:/app/apps/web/postcss.config.js
+      - ./apps/web/next.config.mjs:/app/apps/web/next.config.mjs
+      - ./apps/web/tsconfig.json:/app/apps/web/tsconfig.json
       - web_next_cache:/app/apps/web/.next
 
 volumes:

@@ -19,9 +19,11 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
-    resolver: zodResolver(schema),
-  });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
     setError('');
@@ -35,72 +37,68 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pob-navy to-pob-blue flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="text-4xl mb-3">🔑</div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('title')}</h1>
-          <p className="text-gray-500 mt-1 text-sm">
-            {t('subtitle')}
-          </p>
-        </div>
+    <>
+      <p className="eyebrow-brass">Account Recovery</p>
+      <h2 className="mt-3 font-display text-3xl leading-[1.1] tracking-tight text-ink">
+        {t('title')}
+      </h2>
+      <p className="mt-2 text-sm text-ink-500 leading-relaxed">{t('subtitle')}</p>
 
-        {sent ? (
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-              <div className="text-2xl mb-2">✅</div>
-              <p className="text-green-800 font-medium">{t('sentTitle')}</p>
-              <p className="text-green-600 text-sm mt-1">
-                {t('sentMessage')}
-              </p>
-            </div>
-            <Link
-              href={`/${locale}/login`}
-              className="block w-full text-center bg-pob-blue text-white py-3 rounded-xl font-semibold hover:bg-pob-blue-light transition-colors"
-            >
-              {t('backToLogin')}
-            </Link>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {t('emailOrPhone')}
-              </label>
-              <input
-                {...register('identifier')}
-                type="text"
-                placeholder="e.g. user@example.com or +994501234567"
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pob-blue focus:border-transparent"
-              />
-              {errors.identifier && (
-                <p className="text-red-500 text-sm mt-1">{errors.identifier.message}</p>
-              )}
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-700 text-sm">{error}</p>
+      {sent ? (
+        <div className="mt-7 space-y-5">
+          <div className="surface-sunken bg-sea-50 border-sea-100 p-5">
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-full bg-sea-500 text-white flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <div>
+                <p className="font-medium text-sea-700">{t('sentTitle')}</p>
+                <p className="text-sm text-sea-600/80 mt-0.5">{t('sentMessage')}</p>
               </div>
+            </div>
+          </div>
+          <Link href={`/${locale}/login`} className="btn-brass w-full py-3">
+            {t('backToLogin')}
+          </Link>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit)} className="mt-7 space-y-5">
+          <div>
+            <label htmlFor="identifier" className="eyebrow block mb-1.5">
+              {t('emailOrPhone')}
+            </label>
+            <input
+              id="identifier"
+              {...register('identifier')}
+              type="text"
+              placeholder="user@example.com  /  +994501234567"
+              className="field"
+            />
+            {errors.identifier && (
+              <p className="mt-1.5 text-xs text-wine-600">{errors.identifier.message}</p>
             )}
+          </div>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-pob-blue text-white py-3 rounded-xl font-semibold hover:bg-pob-blue-light disabled:opacity-50 transition-colors"
-            >
-              {isSubmitting ? t('sending') : t('sendBtn')}
-            </button>
+          {error && (
+            <div className="flex gap-2.5 p-3 bg-wine-50 border border-wine-100 rounded-lg">
+              <p className="text-wine-600 text-sm">{error}</p>
+            </div>
+          )}
 
-            <Link
-              href={`/${locale}/login`}
-              className="block w-full text-center text-gray-500 hover:text-gray-700 text-sm transition-colors"
-            >
-              ← {t('backToLogin')}
-            </Link>
-          </form>
-        )}
-      </div>
-    </div>
+          <button type="submit" disabled={isSubmitting} className="btn-brass w-full py-3 mt-1">
+            {isSubmitting ? t('sending') : t('sendBtn')}
+          </button>
+
+          <Link
+            href={`/${locale}/login`}
+            className="block text-center text-sm text-ink-500 hover:text-ink-800 transition-colors mt-2"
+          >
+            ← {t('backToLogin')}
+          </Link>
+        </form>
+      )}
+    </>
   );
 }

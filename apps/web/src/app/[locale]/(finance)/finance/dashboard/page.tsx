@@ -20,67 +20,117 @@ export default function FinanceDashboardPage() {
   }, []);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 animate-fade-up">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">{t('dashboardTitle')}</h1>
-        <p className="text-gray-500 text-sm mt-1">{user?.email} · {t('portalLabel')}</p>
-      </div>
+      <header className="border-b border-parchment-300 pb-5">
+        <p className="eyebrow-brass">{t('portalLabel')}</p>
+        <h1 className="mt-2 font-display text-3xl sm:text-4xl tracking-tight text-ink">
+          {t('dashboardTitle')}
+        </h1>
+        <p className="mt-1.5 text-sm text-ink-500 font-mono tabular-nums">{user?.email}</p>
+      </header>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">{t('pendingReview')}</p>
-          <p className="text-3xl font-bold text-amber-500">
-            {pendingCount === null ? (
-              <span className="inline-block w-8 h-8 border-2 border-amber-300 border-t-transparent rounded-full animate-spin align-middle" />
-            ) : pendingCount}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">{t('legalApplications')}</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">{t('reviewCycles')}</p>
-          <p className="text-3xl font-bold text-gray-800">2</p>
-          <p className="text-xs text-gray-400 mt-1">{t('reviewCyclesDesc')}</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">{t('sla')}</p>
-          <p className="text-3xl font-bold text-green-600">48h</p>
-          <p className="text-xs text-gray-400 mt-1">{t('slaDesc')}</p>
-        </div>
+        <StatCard
+          eyebrow={t('pendingReview')}
+          value={pendingCount === null ? '—' : pendingCount.toString()}
+          loading={pendingCount === null}
+          caption={t('legalApplications')}
+          tone="brass"
+        />
+        <StatCard
+          eyebrow={t('reviewCycles')}
+          value="2"
+          caption={t('reviewCyclesDesc')}
+          tone="ink"
+        />
+        <StatCard
+          eyebrow={t('sla')}
+          value="48h"
+          caption={t('slaDesc')}
+          tone="sea"
+        />
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Quick actions + reference */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Link
           href={`/${locale}/registrations`}
-          className="bg-white border border-gray-200 rounded-xl p-6 hover:border-amber-400 hover:shadow-md transition-all group"
+          className="group surface p-6 hover:border-brass-400 hover:shadow-admiralty transition-all"
         >
-          <div className="text-3xl mb-3">📋</div>
-          <h3 className="font-semibold text-lg text-gray-800 group-hover:text-amber-600 transition-colors">
-            {t('reviewRegistrations')}
-          </h3>
-          <p className="text-gray-500 text-sm mt-1">
-            {t('reviewRegistrationsDesc')}
-          </p>
-          {pendingCount !== null && pendingCount > 0 && (
-            <span className="inline-block mt-3 bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {t('waiting', { count: pendingCount })}
+          <div className="flex items-start justify-between">
+            <span className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-brass-50 text-brass-600 group-hover:bg-brass-100 transition-colors">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zM10.5 14.25h2.25M10.5 18h2.25" />
+              </svg>
             </span>
-          )}
+            {pendingCount !== null && pendingCount > 0 && (
+              <span className="text-[10px] uppercase tracking-eyebrow font-medium bg-brass-500 text-white px-2.5 py-1 rounded-full tabular-nums">
+                {t('waiting', { count: pendingCount })}
+              </span>
+            )}
+          </div>
+          <p className="mt-4 eyebrow text-ink-400">Action</p>
+          <h3 className="mt-1 font-display text-xl text-ink">{t('reviewRegistrations')}</h3>
+          <p className="mt-1.5 text-sm text-ink-500">{t('reviewRegistrationsDesc')}</p>
         </Link>
 
-        <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <div className="text-3xl mb-3">📜</div>
-          <h3 className="font-semibold text-lg text-gray-800">{t('brdRules')}</h3>
-          <ul className="text-gray-500 text-sm mt-2 space-y-1">
-            <li>• {t('brdRule1')}</li>
-            <li>• {t('brdRule2')}</li>
-            <li>• {t('brdRule3')}</li>
-            <li>• {t('brdRule4')}</li>
+        <div className="surface p-6">
+          <span className="inline-flex items-center justify-center w-11 h-11 rounded-lg bg-parchment-100 text-ink-700">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+            </svg>
+          </span>
+          <p className="mt-4 eyebrow text-ink-400">Reference</p>
+          <h3 className="mt-1 font-display text-xl text-ink">{t('brdRules')}</h3>
+          <ul className="mt-3 space-y-2 text-sm text-ink-600">
+            <BrdItem>{t('brdRule1')}</BrdItem>
+            <BrdItem>{t('brdRule2')}</BrdItem>
+            <BrdItem>{t('brdRule3')}</BrdItem>
+            <BrdItem>{t('brdRule4')}</BrdItem>
           </ul>
         </div>
       </div>
     </div>
+  );
+}
+
+function StatCard({
+  eyebrow,
+  value,
+  caption,
+  loading,
+  tone,
+}: {
+  eyebrow: string;
+  value: string;
+  caption: string;
+  loading?: boolean;
+  tone: 'brass' | 'ink' | 'sea';
+}) {
+  const valueClass =
+    tone === 'brass' ? 'text-brass-600' : tone === 'sea' ? 'text-sea-600' : 'text-ink';
+  return (
+    <div className="surface p-5">
+      <p className="eyebrow text-ink-400">{eyebrow}</p>
+      <p className={`mt-3 font-display text-4xl tabular-nums ${valueClass}`}>
+        {loading ? (
+          <span className="inline-block w-7 h-7 border-2 border-brass-200 border-t-transparent rounded-full animate-spin align-middle" />
+        ) : (
+          value
+        )}
+      </p>
+      <p className="mt-1 text-xs text-ink-500">{caption}</p>
+    </div>
+  );
+}
+
+function BrdItem({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex gap-2 leading-relaxed">
+      <span className="text-brass-500 mt-1.5 shrink-0">▸</span>
+      <span>{children}</span>
+    </li>
   );
 }

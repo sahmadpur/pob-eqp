@@ -14,7 +14,23 @@
     "individualCustomer": "Individual Customer",
     "individualDesc": "For individual drivers and independent carriers",
     "legalEntity": "Legal Entity",
-    "legalDesc": "For companies and enterprises"
+    "legalDesc": "For companies and enterprises",
+    "secureAccess": "Secure Access",
+    "secureAccessSubtitle": "Authorised port personnel and registered customers only.",
+    "or": "or",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "authHero": {
+    "portOfBaku": "Port of Baku",
+    "eQueuePlatform": "E-Queue Platform",
+    "eyebrow": "Caspian Gateway · Est. 1902",
+    "headline": "Where the freight of <em>three continents</em> meets the sea.",
+    "description": "The official electronic queue for ferry cargo dispatch. Reserved priority slots, transparent FIFO ordering, and live operational visibility — all in one secure platform.",
+    "dailySlots": "Daily slots",
+    "dispatch": "Dispatch",
+    "languages": "Languages",
+    "bakiLimani": "Bakı Limanı"
   },
   "nav": {
     "dashboard": "Dashboard",

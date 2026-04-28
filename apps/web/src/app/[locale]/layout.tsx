@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Fraunces, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 import { notFound } from 'next/navigation';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
@@ -7,11 +7,30 @@ import { locales } from '../../i18n';
 import { StoreHydrator } from '@/components/store-hydrator';
 import '../globals.css';
 
-const inter = Inter({ subsets: ['latin', 'latin-ext'], variable: '--font-inter' });
+const fraunces = Fraunces({
+  subsets: ['latin', 'latin-ext'],
+  variable: '--font-display',
+  display: 'swap',
+  axes: ['SOFT', 'opsz'],
+});
+
+const plexSans = IBM_Plex_Sans({
+  subsets: ['latin', 'latin-ext', 'cyrillic'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ['latin', 'latin-ext', 'cyrillic'],
+  weight: ['400', '500', '600'],
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
-  title: 'Port of Baku E-Queue Platform',
-  description: 'Efficient truck shipment queue management for Port of Baku',
+  title: 'Port of Baku · E-Queue Platform',
+  description: 'Official electronic queue and ferry cargo dispatch system for the Port of Baku.',
 };
 
 export function generateStaticParams() {
@@ -31,7 +50,9 @@ export default async function RootLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body
+        className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable} font-sans antialiased`}
+      >
         <NextIntlClientProvider locale={locale} messages={messages}>
           <StoreHydrator />
           {children}

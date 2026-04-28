@@ -89,6 +89,7 @@ export default function FinanceOrderDetailPage() {
   const params = useParams<{ orderId: string }>();
   const orderId = params.orderId;
   const t = useTranslations('staffOrders');
+  const tPayment = useTranslations('payment');
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -506,14 +507,14 @@ export default function FinanceOrderDetailPage() {
                 onClick={() => setShowRefundDialog(true)}
                 className="px-3 py-1.5 text-xs font-medium bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-md transition-colors"
               >
-                {t('refundBtn')}
+                {tPayment('refundBtn')}
               </button>
               <button
                 type="button"
                 onClick={() => setShowCancelDialog(true)}
                 className="px-3 py-1.5 text-xs font-medium bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-md transition-colors"
               >
-                {t('cancelPaymentBtn')}
+                {tPayment('cancelPaymentBtn')}
               </button>
             </div>
           )}
@@ -527,7 +528,7 @@ export default function FinanceOrderDetailPage() {
           onClose={() => setShowRefundDialog(false)}
           onDone={() => {
             setShowRefundDialog(false);
-            setActionMsg({ type: 'success', text: t('refundSuccess') });
+            setActionMsg({ type: 'success', text: tPayment('refundSuccess') });
             loadOrder();
           }}
         />
@@ -539,7 +540,7 @@ export default function FinanceOrderDetailPage() {
           onClose={() => setShowCancelDialog(false)}
           onDone={() => {
             setShowCancelDialog(false);
-            setActionMsg({ type: 'success', text: t('cancelSuccess') });
+            setActionMsg({ type: 'success', text: tPayment('cancelSuccess') });
             loadOrder();
           }}
         />

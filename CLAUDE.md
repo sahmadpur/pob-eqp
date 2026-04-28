@@ -114,6 +114,9 @@ docker compose logs api | grep "DEV ONLY"   # Find OTP codes in dev
   ```
 - Verify table creation: `docker compose exec postgres psql -U pob_user -d pob_eqp -c "\dt <table>"`
 
+## Web Config Files
+Root-level web configs (`tailwind.config.ts`, `postcss.config.js`, `next.config.mjs`, `tsconfig.json`) ARE bind-mounted into `pob-web`. Edits hot-reload without rebuild — but a Tailwind/PostCSS config change needs a `docker compose restart web` (Tailwind only reads its config at process start). Source under `apps/web/src` and `apps/web/messages` reloads via Next Fast Refresh as usual.
+
 ## Seeded Credentials
 | Role | Email | Password |
 |---|---|---|

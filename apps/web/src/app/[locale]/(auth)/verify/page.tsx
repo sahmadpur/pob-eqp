@@ -143,51 +143,57 @@ export default function VerifyOtpPage() {
   return (
     <div className="text-center">
       {/* Progress */}
-      <div className="flex items-center justify-center gap-2 mb-5">
+      <div className="flex items-center justify-center gap-2 mb-7">
         <div className="flex items-center gap-1.5">
           {[1, 2, 3, 4].map((step) => (
             <div
               key={step}
-              className={`h-1.5 rounded-full ${step <= 3 ? 'w-8 bg-pob-blue' : 'w-4 bg-gray-200'}`}
+              className={`h-1 rounded-full transition-all ${
+                step <= 3 ? 'w-9 bg-brass-500' : 'w-4 bg-parchment-300'
+              }`}
             />
           ))}
         </div>
-        <span className="text-xs text-gray-400 ml-1">{tReg('step3of4')}</span>
+        <span className="ml-2 eyebrow text-ink-400">{tReg('step3of4')}</span>
       </div>
 
-      <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-        <span className="text-3xl">📱</span>
+      <div className="w-14 h-14 mx-auto mb-5 rounded-full bg-parchment-100 border border-parchment-300 flex items-center justify-center text-brass-600">
+        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+        </svg>
       </div>
 
-      <h2 className="text-xl font-bold text-gray-800 mb-1">{t('title')}</h2>
-      <p className="text-gray-500 text-sm mb-1">
-        {t('sentCode')}
-      </p>
-      <p className="font-semibold text-gray-700 mb-5">{maskedIdentifier}</p>
+      <p className="eyebrow-brass">Verification</p>
+      <h2 className="mt-2 font-display text-2xl leading-[1.15] tracking-tight text-ink">
+        {t('title')}
+      </h2>
+      <p className="mt-2 text-sm text-ink-500">{t('sentCode')}</p>
+      <p className="mt-1 font-mono text-sm text-ink tabular-nums">{maskedIdentifier}</p>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+        <div className="mt-5 p-3 bg-wine-50 border border-wine-100 text-wine-600 rounded-lg text-sm text-left">
           {error}
         </div>
       )}
 
-      {/* OTP input boxes */}
-      <div className="flex justify-center gap-2 mb-6" onPaste={handlePaste}>
+      {/* OTP input boxes — admiralty cell style */}
+      <div className="flex justify-center gap-1.5 sm:gap-2 mt-7 mb-6" onPaste={handlePaste}>
         {otp.map((digit, i) => (
           <input
             key={i}
-            ref={(el) => { inputRefs.current[i] = el; }}
+            ref={(el) => {
+              inputRefs.current[i] = el;
+            }}
             type="text"
             inputMode="numeric"
             maxLength={1}
             value={digit}
             onChange={(e) => handleChange(i, e.target.value)}
             onKeyDown={(e) => handleKeyDown(i, e)}
-            className={`w-11 h-13 text-center text-xl font-bold border-2 rounded-xl focus:outline-none focus:ring-0 transition-colors ${
-              digit
-                ? 'border-pob-blue bg-blue-50 text-pob-blue'
-                : 'border-gray-300 text-gray-800'
-            } ${error ? 'border-red-400' : ''}`}
+            className={`w-10 h-12 sm:w-11 sm:h-13 text-center text-xl font-mono font-medium tabular-nums border rounded-lg
+              focus:outline-none focus:ring-2 focus:ring-brass-200 focus:border-brass-500 transition-colors
+              ${digit ? 'border-brass-400 bg-brass-50 text-ink' : 'border-parchment-300 bg-white text-ink'}
+              ${error ? 'border-wine-300 bg-wine-50' : ''}`}
             aria-label={`OTP digit ${i + 1}`}
           />
         ))}
@@ -196,28 +202,28 @@ export default function VerifyOtpPage() {
       <button
         onClick={() => void handleVerify()}
         disabled={loading || otp.some((d) => !d)}
-        className="w-full py-2.5 bg-pob-blue text-white font-medium rounded-lg hover:bg-pob-blue-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-4"
+        className="btn-brass w-full py-3 mb-5"
       >
         {loading ? t('verifying') : t('verifyBtn')}
       </button>
 
       {/* Resend */}
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-ink-500">
         {t('didNotReceive')}{' '}
         {resendCooldown > 0 ? (
-          <span className="text-gray-400">{t('resendIn', { seconds: resendCooldown })}</span>
+          <span className="text-ink-400 tabular-nums">{t('resendIn', { seconds: resendCooldown })}</span>
         ) : (
           <button
             onClick={() => void handleResend()}
             disabled={resending}
-            className="text-pob-blue hover:underline font-medium disabled:opacity-50"
+            className="font-medium text-brass-600 hover:text-brass-700 hover:underline disabled:opacity-50"
           >
             {resending ? t('sending') : t('resend')}
           </button>
         )}
       </p>
 
-      <p className="text-xs text-gray-400 mt-4">
+      <p className="text-xs text-ink-400 mt-3 tabular-nums">
         {t('codeExpires', { minutes: AUTH_CONSTANTS.OTP_EXPIRY_MINUTES })}
       </p>
     </div>

@@ -14,7 +14,23 @@
     "individualCustomer": "Fiziki şəxs",
     "individualDesc": "Fərdi sürücülər və müstəqil daşıyıcılar üçün",
     "legalEntity": "Hüquqi şəxs",
-    "legalDesc": "Şirkətlər və müəssisələr üçün"
+    "legalDesc": "Şirkətlər və müəssisələr üçün",
+    "secureAccess": "Təhlükəsiz giriş",
+    "secureAccessSubtitle": "Yalnız səlahiyyətli liman heyəti və qeydiyyatdan keçmiş müştərilər üçün.",
+    "or": "və ya",
+    "showPassword": "Şifrəni göstər",
+    "hidePassword": "Şifrəni gizlət"
+  },
+  "authHero": {
+    "portOfBaku": "Bakı Limanı",
+    "eQueuePlatform": "E-Növbə Platforması",
+    "eyebrow": "Xəzər Qapısı · Təsis 1902",
+    "headline": "<em>Üç qitənin</em> yükünün dənizlə qovuşduğu yer.",
+    "description": "Bərə yük göndərişi üçün rəsmi elektron növbə. Prioritet yerlər, şəffaf FIFO sıralaması və canlı əməliyyat görünürlüyü — hamısı bir təhlükəsiz platformada.",
+    "dailySlots": "Gündəlik yerlər",
+    "dispatch": "Dispetçer",
+    "languages": "Dillər",
+    "bakiLimani": "Bakı Limanı"
   },
   "nav": {
     "dashboard": "İdarə paneli",
