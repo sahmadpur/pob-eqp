@@ -27,6 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: `/${locale}/admin/dashboard`, label: t('navDashboard') },
     { href: `/${locale}/admin/users`, label: t('navUsers') },
     { href: `/${locale}/admin/planning`, label: t('navPlanning') },
+    { href: `/${locale}/admin/parking`, label: t('navParking') },
     { href: `/${locale}/admin/orders`, label: t('navOrders') },
     { href: `/${locale}/admin/registrations`, label: t('navRegistrations') },
     { href: `/${locale}/admin/system`, label: t('navSystemConfig') },
@@ -52,12 +53,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </Link>
 
-          <div className="hidden md:flex items-center gap-0.5 text-sm flex-1 justify-center overflow-x-auto">
+          <div
+            className="hidden md:flex items-center gap-0 text-[13px] flex-1 justify-center min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             {links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-2.5 py-1.5 rounded-md transition-colors whitespace-nowrap ${
+                className={`px-2 py-1.5 rounded-md transition-colors whitespace-nowrap ${
                   isActive(link.href)
                     ? 'text-brass-200 bg-white/[0.06]'
                     : 'text-parchment-200/80 hover:text-parchment-50 hover:bg-white/[0.04]'
@@ -69,7 +72,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
-            <span className="hidden lg:inline text-xs text-parchment-300/70 font-mono truncate max-w-[200px]">
+            <span className="hidden xl:inline text-xs text-parchment-300/70 font-mono truncate max-w-[200px]">
               {user?.email}
             </span>
             <LocaleSwitcher variant="dark" />

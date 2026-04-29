@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ParkingService } from './parking.service';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
@@ -6,6 +6,8 @@ import { RolesGuard } from '../../guards/roles.guard';
 import { Roles } from '../../decorators/roles.decorator';
 import { UserRole, ParkingSlotStatus } from '@pob-eqp/shared';
 import { AssignSlotDto } from './dto/assign-slot.dto';
+import { CreateZoneDto } from './dto/create-zone.dto';
+import { UpdateZoneDto } from './dto/update-zone.dto';
 
 @ApiTags('parking')
 @Controller('parking')
@@ -13,6 +15,36 @@ import { AssignSlotDto } from './dto/assign-slot.dto';
 @ApiBearerAuth('access-token')
 export class ParkingController {
   constructor(private readonly parkingService: ParkingService) {}
+
+  // Admin zone management — must come BEFORE generic `zones/:zoneId/...` routes
+  // to avoid the dynamic param matching the literal `admin` segment.
+  @Get('admin/zones')
+  @Roles(UserRole.ADMINISTRATOR)
+  @ApiOperation({ summary: 'Admin: list zones with capacity, occupancy, and slot prefix' })
+  async listZonesForAdmin() {
+    return this.parkingService.listZonesForAdmin();
+  }
+
+  @Post('admin/zones')
+  @Roles(UserRole.ADMINISTRATOR)
+  @ApiOperation({ summary: 'Admin: create a parking zone with N slots' })
+  async createZone(@Body() dto: CreateZoneDto) {
+    return this.parkingService.createZone(dto);
+  }
+
+  @Patch('admin/zones/:zoneId')
+  @Roles(UserRole.ADMINISTRATOR)
+  @ApiOperation({ summary: 'Admin: update zone metadata and/or capacity (adds/removes slots)' })
+  async updateZone(@Param('zoneId') zoneId: string, @Body() dto: UpdateZoneDto) {
+    return this.parkingService.updateZone(zoneId, dto);
+  }
+
+  @Delete('admin/zones/:zoneId')
+  @Roles(UserRole.ADMINISTRATOR)
+  @ApiOperation({ summary: 'Admin: delete a zone (only if no slots are in use)' })
+  async deleteZone(@Param('zoneId') zoneId: string) {
+    return this.parkingService.deleteZone(zoneId);
+  }
 
   @Get('zones')
   @Roles(

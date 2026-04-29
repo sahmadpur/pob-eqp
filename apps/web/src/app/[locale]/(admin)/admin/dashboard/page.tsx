@@ -35,6 +35,14 @@ export default function AdminDashboardPage() {
       ),
     },
     {
+      href: `/${locale}/admin/parking`,
+      label: t('parking'),
+      desc: t('parkingDesc'),
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h12A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6zM9 8.25h3.75a2.625 2.625 0 010 5.25H9v3.75M9 8.25v9" />
+      ),
+    },
+    {
       href: `/${locale}/admin/system`,
       label: t('systemConfig'),
       desc: t('systemConfigDesc'),
